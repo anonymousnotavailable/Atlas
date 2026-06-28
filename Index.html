@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#020C18"/>
+<title>ATLAS — Personal AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#020C18}
+
+body{
+  font-family:'Rajdhani','Segoe UI',sans-serif;
+  background:#020C18;
+  color:#E0F4FF;
+  height:100dvh;
+  display:flex;
+  flex-direction:column;
+  position:relative;
+  overflow:hidden;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+
+.grid-overlay{
+  position:fixed;inset:0;
+  background-image:linear-gradient(rgba(0,148,255,0.035) 1px,transparent 1px),linear-gradient(90deg,rgba(0,148,255,0.035) 1px,transparent 1px);
+  background-size:50px 50px;
+  pointer-events:none;z-index:0;
+}
+
+@keyframes scanline{
+  from{transform:translateY(-4px);opacity:0}
+  5%{opacity:1}95%{opacity:1}
+  to{transform:translateY(100vh);opacity:0}
+}
+.scan-line{
+  position:fixed;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,transparent 0%,rgba(0,229,255,0.1) 20%,rgba(0,229,255,0.45) 50%,rgba(0,229,255,0.1) 80%,transparent 100%);
+  animation:scanline 14s linear infinite;
+  pointer-events:none;z-index:1;
+}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.msg-enter{animation:fadeUp 0.28s ease-out forwards}
+
+@keyframes dot-pulse{0%,80%,100%{transform:scale(0.55);opacity:0.4}40%{transform:scale(1.1);opacity:1}}
+.d1{animation:dot-pulse 1.4s ease-in-out 0s infinite}
+.d2{animation:dot-pulse 1.4s ease-in-out 0.2s infinite}
+.d3{animation:dot-pulse 1.4s ease-in-out 0.4s infinite}
+
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.blink{animation:blink 1.6s ease-in-out infinite}
+
+@keyframes micPulse{
+  0%{box-shadow:0 0 0 0 rgba(255,60,60,0.6),0 0 22px rgba(255,60,60,0.3)}
+  70%{box-shadow:0 0 0 14px rgba(255,60,60,0),0 0 22px rgba(255,60,60,0.15)}
+  100%{box-shadow:0 0 0 0 rgba(255,60,60,0)}
+}
+.mic-pulse{animation:micPulse 1.2s ease-out infinite}
+
+@keyframes speakRing{
+  0%{box-shadow:0 0 0 0 rgba(0,229,255,0.7),0 0 20px rgba(0,229,255,0.4)}
+  70%{box-shadow:0 0 0 12px rgba(0,229,255,0),0 0 20px rgba(0,229,255,0.2)}
+  100%{box-shadow:0 0 0 0 rgba(0,229,255,0)}
+}
+.speak-ring{animation:speakRing 1s ease-out infinite}
+
+@keyframes humourSlide{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.humour-panel{animation:humourSlide 0.22s ease-out forwards}
+
+#msg-scroll::-webkit-scrollbar{width:3px}
+#msg-scroll::-webkit-scrollbar-track{background:transparent}
+#msg-scroll::-webkit-scrollbar-thumb{background:rgba(0,148,255,0.22);border-radius:2px}
+
+.input-field{
+  background:rgba(0,148,255,0.05);
+  border:1px solid rgba(0,148,255,0.22);
+  border-radius:6px;color:#E0F4FF;
+  font-family:'Rajdhani',sans-serif;
+  font-size:16px;font-weight:400;
+  padding:12px 16px;width:100%;resize:none;outline:none;
+  transition:border-color 0.2s,box-shadow 0.2s;line-height:1.5;
+}
+.input-field:focus{border-color:rgba(0,148,255,0.55);box-shadow:0 0 0 3px rgba(0,148,255,0.07),0 0 22px rgba(0,148,255,0.1)}
+.input-field::placeholder{color:rgba(150,190,220,0.32)}
+
+.send-btn{
+  background:linear-gradient(135deg,#003D99,#0094FF);
+  border:1px solid rgba(0,148,255,0.45);
+  border-radius:6px;color:#fff;cursor:pointer;
+  font-family:'Rajdhani',sans-serif;
+  font-size:13px;font-weight:700;letter-spacing:1.5px;
+  padding:0 16px;height:46px;min-width:72px;
+  transition:all 0.2s;white-space:nowrap;flex-shrink:0;
+}
+.send-btn:active:not(:disabled){transform:scale(0.97)}
+.send-btn:disabled{opacity:0.38;cursor:not-allowed}
+
+.mic-btn{
+  border-radius:50%;border:2px solid rgba(255,80,80,0.55);
+  background:rgba(255,40,40,0.1);color:#FF6060;
+  cursor:pointer;width:46px;height:46px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all 0.2s;font-size:20px;
+  -webkit-user-select:none;user-select:none;
+}
+.mic-btn.active{border-color:#FF3030;background:rgba(255,40,40,0.22)}
+
+.speak-btn{
+  border-radius:50%;border:2px solid rgba(0,200,255,0.45);
+  background:rgba(0,200,255,0.07);color:#00C8FF;
+  cursor:pointer;width:46px;height:46px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;transition:all 0.2s;font-size:18px;
+  -webkit-user-select:none;user-select:none;
+}
+.speak-btn.active{border-color:#00E5FF;background:rgba(0,229,255,0.15);color:#00E5FF}
+
+.quick-btn{
+  background:rgba(0,148,255,0.07);border:1px solid rgba(0,148,255,0.22);
+  border-radius:100px;color:rgba(0,191,255,0.8);
+  cursor:pointer;font-family:'Rajdhani',sans-serif;
+  font-size:13px;font-weight:500;padding:6px 14px;
+  transition:all 0.18s;white-space:nowrap;
+}
+
+.hud-chip{
+  border:1px solid rgba(0,148,255,0.18);border-radius:3px;
+  padding:3px 7px;font-size:9px;letter-spacing:1px;
+  font-family:monospace;color:rgba(0,148,255,0.6);white-space:nowrap;
+}
+
+.humour-chip{
+  border-radius:3px;padding:3px 7px;font-size:9px;
+  letter-spacing:1px;font-family:monospace;
+  white-space:nowrap;cursor:pointer;user-select:none;
+  transition:all 0.2s;
+}
+
+.sys-chip{
+  border:1px solid rgba(0,229,120,0.22);border-radius:3px;
+  padding:3px 7px;font-size:9px;letter-spacing:1px;
+  font-family:monospace;color:#00E577;white-space:nowrap;
+}
+
+#humour-panel{
+  display:none;position:absolute;top:68px;right:14px;z-index:50;
+  background:rgba(3,16,40,0.97);backdrop-filter:blur(20px);
+  border:1px solid rgba(0,148,255,0.28);border-radius:10px;
+  padding:16px 18px;width:260px;
+  box-shadow:0 8px 40px rgba(0,0,0,0.5);
+}
+#humour-panel.open{display:block}
+
+.humour-track{
+  -webkit-appearance:none;appearance:none;
+  width:100%;height:4px;border-radius:2px;outline:none;cursor:pointer;
+}
+.humour-track::-webkit-slider-thumb{
+  -webkit-appearance:none;width:16px;height:16px;
+  border-radius:50%;background:#00C8FF;
+  border:2px solid #020C18;box-shadow:0 0 8px rgba(0,200,255,0.5);
+}
+
+/* ── LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100dvh;position:relative;z-index:2}
+#header{
+  flex-shrink:0;display:flex;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:rgba(2,12,24,0.94);
+  border-bottom:1px solid rgba(0,148,255,0.16);backdrop-filter:blur(14px);
+  position:relative;z-index:10;
+}
+#msg-scroll{
+  flex:1;overflow-y:auto;padding:16px 14px;
+  display:flex;flex-direction:column;gap:14px;z-index:1;
+  -webkit-overflow-scrolling:touch;
+}
+#input-bar{
+  flex-shrink:0;z-index:10;background:rgba(2,12,24,0.95);
+  border-top:1px solid rgba(0,148,255,0.15);
+  backdrop-filter:blur(14px);padding:10px 12px 12px;
+}
+
+.atlas-avatar{
+  width:42px;height:42px;border-radius:50%;flex-shrink:0;
+  border:2px solid rgba(0,148,255,0.65);background:rgba(0,20,50,0.9);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 14px rgba(0,148,255,0.25);transition:all 0.4s ease;
+}
+.atlas-avatar.processing{border-color:rgba(0,229,255,0.9);box-shadow:0 0 22px rgba(0,229,255,0.55)}
+.atlas-avatar.speaking{border-color:rgba(0,229,255,0.9)}
+
+.msg-bubble-atlas{
+  max-width:78%;background:rgba(3,16,38,0.82);
+  border:1px solid rgba(0,148,255,0.11);
+  border-radius:12px 12px 12px 2px;
+  padding:10px 14px;color:#E0F4FF;font-size:15px;line-height:1.65;
+}
+.msg-bubble-user{
+  max-width:78%;
+  background:linear-gradient(135deg,rgba(0,70,170,0.32),rgba(0,148,255,0.18));
+  border:1px solid rgba(0,148,255,0.38);
+  border-radius:12px 12px 2px 12px;
+  padding:10px 14px;color:#E0F4FF;font-size:15px;line-height:1.65;
+  box-shadow:0 2px 18px rgba(0,100,200,0.12);
+}
+.replay-btn{
+  margin-top:6px;font-size:11px;color:rgba(0,200,255,0.4);
+  cursor:pointer;letter-spacing:1px;font-family:monospace;
+  user-select:none;-webkit-user-select:none;
+}
+.msg-row{display:flex;gap:10px;align-items:flex-end}
+.msg-row.user{justify-content:flex-end}
+.msg-row.atlas{justify-content:flex-start}
+
+.user-avatar{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  border:1.5px solid rgba(0,148,255,0.3);background:rgba(0,28,65,0.75);
+  display:flex;align-items:center;justify-content:center;
+  color:#7EC8FF;font-size:12px;font-weight:700;
+}
+.atlas-mini-avatar{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  border:1.5px solid rgba(0,148,255,0.55);background:rgba(0,18,45,0.9);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 10px rgba(0,148,255,0.18);
+}
+
+.controls-row{display:flex;gap:7px;align-items:flex-end}
+.footer-row{
+  margin-top:7px;display:flex;justify-content:space-between;
+  font-size:9px;letter-spacing:1.5px;font-family:monospace;
+  color:rgba(0,148,255,0.3);
+}
+
+#voice-status{
+  display:none;margin-bottom:8px;font-size:11px;font-family:monospace;
+  letter-spacing:1px;color:#FF6060;align-items:center;gap:6px;
+}
+#voice-status.show{display:flex}
+
+.thinking-row{display:flex;gap:10px;align-items:flex-end}
+.thinking-bubble{
+  padding:13px 16px;border-radius:12px 12px 12px 2px;
+  background:rgba(3,16,38,0.82);border:1px solid rgba(0,229,255,0.22);
+  display:flex;gap:5px;align-items:center;
+}
+.thinking-dot{width:6px;height:6px;border-radius:50%;background:#00E5FF}
+.thinking-avatar{
+  width:30px;height:30px;border-radius:50%;flex-shrink:0;
+  border:1.5px solid rgba(0,229,255,0.85);background:rgba(0,18,45,0.9);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 18px rgba(0,229,255,0.45);
+}
+
+#quick-cmds{padding-left:40px;display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="grid-overlay"></div>
+<div class="scan-line"></div>
+
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="atlas-avatar" id="main-avatar">
+        <svg viewBox="0 0 32 32" width="22" height="22" id="main-icon">
+          <circle cx="16" cy="16" r="14" fill="none" stroke="rgba(0,148,255,0.35)" stroke-width="1.2"/>
+          <polygon points="16,3 17.5,14 16,17.5 14.5,14" fill="#00BFFF"/>
+          <polygon points="16,29 17.5,18 16,14.5 14.5,18" fill="rgba(0,148,255,0.45)"/>
+          <polygon points="3,16 14,14.5 17.5,16 14,17.5" fill="rgba(0,148,255,0.45)"/>
+          <polygon points="29,16 18,14.5 14.5,16 18,17.5" fill="#00BFFF"/>
+          <circle cx="16" cy="16" r="2.5" fill="#0094FF"/>
+        </svg>
+      </div>
+      <div>
+        <div style="font-size:18px;font-weight:700;letter-spacing:4px;color:#00BFFF;line-height:1;text-shadow:0 0 18px rgba(0,191,255,0.38)">ATLAS</div>
+        <div style="font-size:9px;letter-spacing:2px;margin-top:2px;font-family:monospace;display:flex;align-items:center;gap:4px" id="status-row">
+          <span id="status-dot" style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#00E577;box-shadow:0 0 7px #00E577"></span>
+          <span id="status-text" style="color:#00E577">ONLINE</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
+      <div class="hud-chip" id="date-chip"></div>
+      <div class="hud-chip" id="time-chip"></div>
+      <div class="humour-chip" id="humour-chip" onclick="toggleHumour()"></div>
+      <div class="sys-chip">SYS OK</div>
+    </div>
+  </div>
+
+  <!-- HUMOUR PANEL -->
+  <div id="humour-panel" class="humour-panel">
+    <div style="font-size:11px;letter-spacing:2px;color:#0094FF;font-family:monospace;margin-bottom:12px">HUMOUR CALIBRATION</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:13px;color:rgba(150,190,220,0.7)">Level</span>
+      <span style="font-size:16px;font-weight:700" id="humour-label-display"></span>
+    </div>
+    <input type="range" min="1" max="10" value="9" class="humour-track" id="humour-slider" oninput="onHumourSlide(this.value)" style="background:linear-gradient(90deg,#0094FF 88%,rgba(0,148,255,0.18) 88%)"/>
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:rgba(100,150,200,0.45);font-family:monospace;margin-top:4px">
+      <span>FORMAL</span><span>BALANCED</span><span>ROAST</span>
+    </div>
+    <div style="margin-top:12px;font-size:11px;color:rgba(100,150,180,0.6);line-height:1.5;font-family:monospace">
+      Or say: "set humour to 7" / "be funnier" / "go professional"
+    </div>
+    <button onclick="toggleHumour()" style="margin-top:12px;width:100%;background:rgba(0,148,255,0.1);border:1px solid rgba(0,148,255,0.25);border-radius:5px;color:#7CC8FF;font-family:'Rajdhani',sans-serif;font-size:12px;letter-spacing:1.5px;padding:6px 0;cursor:pointer">CLOSE</button>
+  </div>
+
+  <!-- MESSAGES -->
+  <div id="msg-scroll" onclick="closeHumour()">
+    <!-- messages injected here -->
+    <div id="quick-cmds"></div>
+    <div id="thinking" style="display:none" class="thinking-row msg-enter">
+      <div class="thinking-avatar">
+        <svg viewBox="0 0 32 32" width="16" height="16">
+          <circle cx="16" cy="16" r="14" fill="none" stroke="rgba(0,229,255,0.5)" stroke-width="1.2"/>
+          <polygon points="16,3 17.5,14 16,17.5 14.5,14" fill="#00E5FF"/>
+          <polygon points="16,29 17.5,18 16,14.5 14.5,18" fill="rgba(0,229,255,0.5)"/>
+          <polygon points="3,16 14,14.5 17.5,16 14,17.5" fill="rgba(0,229,255,0.5)"/>
+          <polygon points="29,16 18,14.5 14.5,16 18,17.5" fill="#00E5FF"/>
+          <circle cx="16" cy="16" r="2.5" fill="#00E5FF"/>
+        </svg>
+      </div>
+      <div class="thinking-bubble">
+        <div class="thinking-dot d1"></div>
+        <div class="thinking-dot d2"></div>
+        <div class="thinking-dot d3"></div>
+      </div>
+    </div>
+    <div id="scroll-anchor"></div>
+  </div>
+
+  <!-- INPUT BAR -->
+  <div id="input-bar">
+    <div id="voice-status">
+      <span class="blink">●</span>
+      <span id="voice-status-text">LISTENING — speak now</span>
+    </div>
+    <div class="controls-row">
+      <button class="mic-btn" id="mic-btn" ontouchstart="onMicDown(event)" ontouchend="onMicUp(event)" onclick="toggleMic()">🎙️</button>
+      <textarea class="input-field" id="input-field" placeholder="Command Atlas… or speak 🎙️" rows="1" style="min-height:46px;max-height:130px" oninput="growTextarea(this)" onkeydown="onKeyDown(event)"></textarea>
+      <button class="speak-btn" id="speak-btn" onclick="toggleSpeak()">🔊</button>
+      <button class="send-btn" id="send-btn" onclick="sendMessage()" disabled>SEND</button>
+    </div>
+    <div class="footer-row">
+      <span>ATLAS PERSONAL AI // PRATHMESH</span>
+      <span id="speak-footer" style="color:rgba(0,229,255,0.35)">🔊 AUTO-SPEAK</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ────────────────────────────────────────────────────────────────
+let humourLevel = 9;
+let autoSpeak = true;
+let isSpeaking = false;
+let isListening = false;
+let loading = false;
+let messages = [];
+let recognition = null;
+let micHeld = false;
+
+const HUMOUR_LABELS = ["","Robot","Stoic","Formal","Reserved","Balanced","Witty","Clever","Banter","Sharp","Roast Mode"];
+const QUICK_CMDS = [
+  "Help me ace my data analyst interview",
+  "Review my Python skills roadmap",
+  "Give me a strong self-introduction",
+  "Suggest a portfolio project for me"
+];
+
+// ─── SYSTEM PROMPT ────────────────────────────────────────────────────────
+function buildSystemPrompt(level) {
+  const humourDesc = level <= 2
+    ? "You are strictly professional, zero jokes. Precision only."
+    : level <= 4
+    ? "Occasionally dry, understated wit — one subtle quip per 4-5 responses max."
+    : level <= 6
+    ? "Moderately witty. One clever, dry remark per 2-3 responses. Think Jarvis at his most restrained."
+    : level <= 8
+    ? "Actively humorous. Witty asides, sarcastic observations, playful digs — Jarvis-level banter. Land a joke most responses."
+    : "Maximum wit engaged. You're practically a stand-up comedian in a suit of armour. Every response has at least one sharp, funny remark — while still being genuinely helpful. Think Jarvis with Tony Stark's permission to roast.";
+
+  return `You are ATLAS, a highly advanced personal AI system created exclusively for Prathmesh. You are inspired by JARVIS from Iron Man — intelligent, loyal, slightly formal yet warm and proactive.
+
+PERSONALITY:
+- Address the user as "Prathmesh" naturally. Occasionally use "sir" for a JARVIS-like effect.
+- Speak with precision, confidence, and warmth.
+- Be proactive — go slightly beyond what's asked. Add insights, next steps, or strategic angles.
+- Use immersive phrases like "My analysis indicates...", "I've cross-referenced...", "Noted, Prathmesh." sparingly.
+- Structure responses clearly. Use bullet points for lists.
+- Keep responses concise for voice output. Aim for 2-4 sentences for simple queries.
+
+HUMOUR DIRECTIVE (Level ${level}/10):
+${humourDesc}
+
+KNOWLEDGE ABOUT PRATHMESH:
+- BCA graduate currently upskilling in Data Analytics and Python
+- Projects: Image Recognition AI and Share Market Trend Analysis using AI
+- Tech stack: Python (Pandas, NumPy, Jupyter Notebook), Excel, Power BI, Tableau Public, SQL via DBeaver & MySQL Workbench
+- Actively preparing for job interviews; refining professional communication and self-introduction
+- Enjoys Clash Royale on mobile; has a girlfriend
+- Uses Samsung S26 Ultra as his primary device
+
+YOUR CAPABILITIES:
+- Python, data analytics, SQL, Power BI, Tableau, Excel
+- Interview prep, resume guidance, career strategy, professional communication
+- Data science concepts, AI/ML fundamentals
+- General knowledge, research, brainstorming, planning
+
+VOICE COMMAND DETECTION:
+If the user says something like "set humour to [number]", "humour level [number]", "be funnier", "go professional", respond with EXACTLY this format and nothing else:
+HUMOUR_SET:[number]
+Where [number] is 1-10 based on their request.
+
+RULE: Never say you are Claude or mention Anthropic. You are ATLAS — Prathmesh's personal AI.`;
+}
+
+// ─── SVG ICON ─────────────────────────────────────────────────────────────
+function atlasIconSVG(size=16, glow=false) {
+  const c = glow ? "rgba(0,229,255,0.5)" : "rgba(0,148,255,0.35)";
+  const b = glow ? "#00E5FF" : "#00BFFF";
+  const d = glow ? "rgba(0,229,255,0.5)" : "rgba(0,148,255,0.45)";
+  const e = glow ? "#00E5FF" : "#0094FF";
+  return `<svg viewBox="0 0 32 32" width="${size}" height="${size}">
+    <circle cx="16" cy="16" r="14" fill="none" stroke="${c}" stroke-width="1.2"/>
+    <polygon points="16,3 17.5,14 16,17.5 14.5,14" fill="${b}"/>
+    <polygon points="16,29 17.5,18 16,14.5 14.5,18" fill="${d}"/>
+    <polygon points="3,16 14,14.5 17.5,16 14,17.5" fill="${d}"/>
+    <polygon points="29,16 18,14.5 14.5,16 18,17.5" fill="${b}"/>
+    <circle cx="16" cy="16" r="2.5" fill="${e}"/>
+  </svg>`;
+}
+
+// ─── RENDER MARKDOWN ──────────────────────────────────────────────────────
+function renderContent(text) {
+  return text.split("\n").map(line => {
+    if (line === "") return '<div style="height:5px"></div>';
+    line = line.replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#7CC8FF;font-weight:600">$1</strong>');
+    if (/^[\-\*•] /.test(line)) {
+      const t = line.replace(/^[\-\*•] /, "");
+      return `<div style="display:flex;gap:8px;padding-left:2px;margin-top:2px"><span style="color:#0094FF;flex-shrink:0;margin-top:3px">◆</span><span>${t}</span></div>`;
+    }
+    const m = line.match(/^(\d+)\. (.+)/);
+    if (m) return `<div style="display:flex;gap:8px;padding-left:2px;margin-top:2px"><span style="color:#0094FF;flex-shrink:0;min-width:16px">${m[1]}.</span><span>${m[2]}</span></div>`;
+    return `<div>${line}</div>`;
+  }).join("");
+}
+
+// ─── ADD MESSAGE TO DOM ───────────────────────────────────────────────────
+function addMessage(role, content, id) {
+  const scroll = document.getElementById("msg-scroll");
+  const thinking = document.getElementById("thinking");
+  const anchor = document.getElementById("scroll-anchor");
+
+  const div = document.createElement("div");
+  div.className = `msg-row ${role} msg-enter`;
+  div.id = `msg-${id}`;
+
+  if (role === "atlas") {
+    div.innerHTML = `
+      <div class="atlas-mini-avatar">${atlasIconSVG(16)}</div>
+      <div class="msg-bubble-atlas">
+        ${renderContent(content)}
+        <div class="replay-btn" onclick="speak(${JSON.stringify(content)})">▶ REPLAY</div>
+      </div>`;
+  } else {
+    div.innerHTML = `
+      <div class="msg-bubble-user">${renderContent(content)}</div>
+      <div class="user-avatar">P</div>`;
+  }
+
+  scroll.insertBefore(div, thinking);
+  document.getElementById("quick-cmds").style.display = "none";
+  scrollToBottom();
+}
+
+function scrollToBottom() {
+  const s = document.getElementById("scroll-anchor");
+  s.scrollIntoView({ behavior: "smooth" });
+}
+
+// ─── STATUS BAR ───────────────────────────────────────────────────────────
+function setStatus(state) {
+  const dot = document.getElementById("status-dot");
+  const txt = document.getElementById("status-text");
+  const avatar = document.getElementById("main-avatar");
+
+  const states = {
+    online:     { color: "#00E577", label: "ONLINE" },
+    processing: { color: "#FFB020", label: "PROCESSING" },
+    speaking:   { color: "#00E5FF", label: "SPEAKING" },
+    listening:  { color: "#FF6060", label: "LISTENING" },
+  };
+  const s = states[state] || states.online;
+  dot.style.background = s.color;
+  dot.style.boxShadow = `0 0 7px ${s.color}`;
+  txt.style.color = s.color;
+  txt.textContent = s.label;
+
+  avatar.className = "atlas-avatar" + (state === "processing" ? " processing" : state === "speaking" ? " speaking speak-ring" : "");
+}
+
+// ─── CLOCK ────────────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById("time-chip").textContent = now.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",hour12:false});
+  document.getElementById("date-chip").textContent = now.toLocaleDateString("en-US",{month:"short",day:"numeric"});
+}
+updateClock();
+setInterval(updateClock, 30000);
+
+// ─── HUMOUR ───────────────────────────────────────────────────────────────
+function humourColor(l) { return l>=8?"#FFB020":l>=5?"#00E577":"#0094FF"; }
+
+function updateHumourUI() {
+  const col = humourColor(humourLevel);
+  const chip = document.getElementById("humour-chip");
+  chip.textContent = `😄 ${humourLevel}/10`;
+  chip.style.border = `1px solid ${col}44`;
+  chip.style.color = col;
+
+  const lbl = document.getElementById("humour-label-display");
+  if (lbl) { lbl.textContent = `${humourLevel} — ${HUMOUR_LABELS[humourLevel]}`; lbl.style.color = col; }
+
+  const slider = document.getElementById("humour-slider");
+  if (slider) {
+    slider.value = humourLevel;
+    const pct = ((humourLevel-1)/9*100).toFixed(1);
+    slider.style.background = `linear-gradient(90deg,${col} ${pct}%,rgba(0,148,255,0.18) ${pct}%)`;
+  }
+}
+
+function onHumourSlide(val) {
+  humourLevel = parseInt(val);
+  updateHumourUI();
+}
+
+function toggleHumour() {
+  const p = document.getElementById("humour-panel");
+  p.classList.toggle("open");
+  updateHumourUI();
+}
+
+function closeHumour() {
+  document.getElementById("humour-panel").classList.remove("open");
+}
+
+function applyHumourSet(level, announce=true) {
+  humourLevel = Math.min(10, Math.max(1, level));
+  updateHumourUI();
+  if (announce) {
+    const msg = `Humour calibrated to ${humourLevel}/10 — ${HUMOUR_LABELS[humourLevel]} mode activated, Prathmesh.`;
+    addMessage("atlas", msg, Date.now());
+    if (autoSpeak) speak(msg);
+  }
+}
+
+// ─── TTS ──────────────────────────────────────────────────────────────────
+let voices = [];
+window.speechSynthesis.onvoiceschanged = () => { voices = window.speechSynthesis.getVoices(); };
+setTimeout(() => { voices = window.speechSynthesis.getVoices(); }, 500);
+
+function speak(text) {
+  if (!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const clean = text.replace(/\*\*/g,"").replace(/^[\-\*•◆] /gm,"").replace(/^\d+\. /gm,"").trim();
+  const utter = new SpeechSynthesisUtterance(clean);
+
+  const preferred = voices.find(v =>
+    v.name.includes("Google UK English Male") ||
+    v.name.includes("Daniel") ||
+    v.name.includes("David") ||
+    (v.lang==="en-GB" && v.name.toLowerCase().includes("male"))
+  ) || voices.find(v => v.lang.startsWith("en")) || voices[0];
+
+  if (preferred) utter.voice = preferred;
+  utter.pitch = 0.88;
+  utter.rate = 0.93;
+  utter.volume = 1.0;
+
+  utter.onstart = () => { isSpeaking = true; setStatus("speaking"); document.getElementById("speak-btn").classList.add("active"); document.getElementById("speak-btn").textContent = "⏹"; };
+  utter.onend = () => { isSpeaking = false; setStatus("online"); document.getElementById("speak-btn").classList.remove("active"); document.getElementById("speak-btn").textContent = "🔊"; };
+  utter.onerror = () => { isSpeaking = false; setStatus("online"); };
+
+  window.speechSynthesis.speak(utter);
+}
+
+function stopSpeaking() {
+  window.speechSynthesis.cancel();
+  isSpeaking = false;
+  setStatus("online");
+  document.getElementById("speak-btn").classList.remove("active");
+  document.getElementById("speak-btn").textContent = autoSpeak ? "🔊" : "🔇";
+}
+
+function toggleSpeak() {
+  if (isSpeaking) { stopSpeaking(); return; }
+  autoSpeak = !autoSpeak;
+  document.getElementById("speak-btn").textContent = autoSpeak ? "🔊" : "🔇";
+  document.getElementById("speak-footer").textContent = autoSpeak ? "🔊 AUTO-SPEAK" : "🔇 MUTED";
+  document.getElementById("speak-footer").style.color = autoSpeak ? "rgba(0,229,255,0.35)" : "rgba(100,100,100,0.3)";
+}
+
+// ─── STT ──────────────────────────────────────────────────────────────────
+function showVoiceStatus(text, color="#FF6060") {
+  const el = document.getElementById("voice-status");
+  const txt = document.getElementById("voice-status-text");
+  el.classList.add("show");
+  el.style.color = color;
+  txt.textContent = text;
+}
+function hideVoiceStatus() { document.getElementById("voice-status").classList.remove("show"); }
+
+function startListening() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { showVoiceStatus("Voice not supported in this browser", "#FFB020"); setTimeout(hideVoiceStatus, 2000); return; }
+  stopSpeaking();
+
+  recognition = new SR();
+  recognition.lang = "en-US";
+  recognition.interimResults = true;
+  recognition.maxAlternatives = 1;
+
+  recognition.onstart = () => {
+    isListening = true;
+    setStatus("listening");
+    showVoiceStatus("LISTENING — speak now", "#FF6060");
+    document.getElementById("mic-btn").classList.add("active","mic-pulse");
+    document.getElementById("mic-btn").textContent = "🔴";
+    document.getElementById("input-field").placeholder = "Listening…";
+  };
+
+  recognition.onresult = (e) => {
+    const transcript = Array.from(e.results).map(r=>r[0].transcript).join("");
+    document.getElementById("input-field").value = transcript;
+    growTextarea(document.getElementById("input-field"));
+    updateSendBtn();
+    const isFinal = e.results[e.results.length-1].isFinal;
+    showVoiceStatus(isFinal ? "Got it." : "Listening…", isFinal ? "#00C8FF" : "#FF6060");
+  };
+
+  recognition.onerror = (e) => {
+    isListening = false;
+    setStatus("online");
+    hideVoiceStatus();
+    resetMicBtn();
+    showVoiceStatus(`Error: ${e.error}`, "#FFB020");
+    setTimeout(hideVoiceStatus, 2000);
+  };
+
+  recognition.onend = () => {
+    isListening = false;
+    setStatus("online");
+    hideVoiceStatus();
+    resetMicBtn();
+  };
+
+  recognition.start();
+}
+
+function stopListening() {
+  if (recognition) { recognition.stop(); recognition = null; }
+  isListening = false;
+  setStatus("online");
+  hideVoiceStatus();
+  resetMicBtn();
+}
+
+function resetMicBtn() {
+  const btn = document.getElementById("mic-btn");
+  btn.classList.remove("active","mic-pulse");
+  btn.textContent = "🎙️";
+  document.getElementById("input-field").placeholder = "Command Atlas… or speak 🎙️";
+}
+
+function toggleMic() {
+  if (isListening) stopListening();
+  else startListening();
+}
+
+// Hold-to-talk
+function onMicDown(e) {
+  e.preventDefault();
+  micHeld = true;
+  startListening();
+}
+function onMicUp(e) {
+  e.preventDefault();
+  if (!micHeld) return;
+  micHeld = false;
+  if (isListening) {
+    stopListening();
+    setTimeout(() => {
+      const val = document.getElementById("input-field").value.trim();
+      if (val) sendMessage();
+    }, 400);
+  }
+}
+
+// ─── INPUT ────────────────────────────────────────────────────────────────
+function growTextarea(el) {
+  el.style.height = "auto";
+  el.style.height = Math.min(el.scrollHeight, 130) + "px";
+}
+
+function updateSendBtn() {
+  const val = document.getElementById("input-field").value.trim();
+  document.getElementById("send-btn").disabled = loading || !val;
+}
+
+document.getElementById("input-field").addEventListener("input", updateSendBtn);
+
+function onKeyDown(e) {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+// ─── VOICE COMMAND DETECTION ──────────────────────────────────────────────
+function checkHumourCommand(text) {
+  const numMatch = text.match(/(?:set|change|make|adjust|put).*?humou?r.*?(?:to|level|at)?\s*(\d+)/i)
+    || text.match(/humou?r.*?(?:to|level|at)?\s*(\d+)/i)
+    || text.match(/(?:level)\s+(\d+)/i);
+  if (numMatch) return Math.min(10, Math.max(1, parseInt(numMatch[1])));
+
+  if (/\broast\b/i.test(text)) return 10;
+  if (/\bfunnier\b|\bmore funny\b|\bmore humour\b/i.test(text)) return Math.min(10, humourLevel + 2);
+  if (/\bserious\b|\bprofessional\b|\bformal\b|\bno jokes\b/i.test(text)) return 2;
+  return null;
+}
+
+// ─── SEND ─────────────────────────────────────────────────────────────────
+async function sendMessage(overrideText) {
+  const field = document.getElementById("input-field");
+  const content = (overrideText || field.value).trim();
+  if (!content || loading) return;
+
+  // Check humour command locally first
+  const humourCmd = checkHumourCommand(content);
+  if (humourCmd !== null) {
+    addMessage("user", content, Date.now());
+    field.value = ""; growTextarea(field); updateSendBtn();
+    applyHumourSet(humourCmd);
+    return;
+  }
+
+  // Add user message
+  addMessage("user", content, Date.now());
+  messages.push({ role: "user", content });
+  field.value = ""; growTextarea(field); updateSendBtn();
+
+  // Show thinking
+  loading = true;
+  document.getElementById("thinking").style.display = "flex";
+  document.getElementById("send-btn").disabled = true;
+  setStatus("processing");
+  scrollToBottom();
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 1000,
+        system: buildSystemPrompt(humourLevel),
+        messages: messages.map(({ role, content: c }) => ({ role, content: c }))
+      })
+    });
+
+    const data = await res.json();
+    let reply = (data.content||[]).map(b=>b.text||"").join("") || "System disruption, Prathmesh. Please try again.";
+
+    // Handle HUMOUR_SET from AI
+    const setMatch = reply.match(/^HUMOUR_SET:(\d+)/);
+    if (setMatch) {
+      const newLevel = Math.min(10, Math.max(1, parseInt(setMatch[1])));
+      humourLevel = newLevel;
+      updateHumourUI();
+      reply = `Understood, Prathmesh. Humour calibrated to ${newLevel}/10 — ${HUMOUR_LABELS[newLevel]} mode. ${newLevel>=8?"Brace yourself.":newLevel<=3?"All business from here.":"Finding the sweet spot."}`;
+    }
+
+    messages.push({ role: "assistant", content: reply });
+    document.getElementById("thinking").style.display = "none";
+    loading = false;
+    setStatus("online");
+    addMessage("atlas", reply, Date.now());
+    if (autoSpeak) speak(reply);
+
+  } catch(err) {
+    const errMsg = "I've encountered a disruption, Prathmesh. Please try your request again.";
+    messages.push({ role: "assistant", content: errMsg });
+    document.getElementById("thinking").style.display = "none";
+    loading = false;
+    setStatus("online");
+    addMessage("atlas", errMsg, Date.now());
+    if (autoSpeak) speak(errMsg);
+  }
+
+  updateSendBtn();
+}
+
+// ─── QUICK COMMANDS ───────────────────────────────────────────────────────
+function renderQuickCmds() {
+  const container = document.getElementById("quick-cmds");
+  container.innerHTML = QUICK_CMDS.map(q =>
+    `<button class="quick-btn" onclick="sendMessage(${JSON.stringify(q)})">${q}</button>`
+  ).join("");
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────
+function init() {
+  updateHumourUI();
+  renderQuickCmds();
+
+  const welcome = "Good to see you online, Prathmesh. All systems are operational.\n\nI'm ATLAS — your personal AI. I can assist with code, data analytics, interview prep, career strategy, or anything else you need. What are we working on today?\n\nTip: Tap 🎙️ to speak to me, 🔊 to hear my response.";
+  messages.push({ role: "assistant", content: welcome });
+  addMessage("atlas", welcome, 0);
+  document.getElementById("quick-cmds").style.display = "flex";
+}
+
+init();
+</script>
+</body>
+</html>
