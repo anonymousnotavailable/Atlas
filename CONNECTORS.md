@@ -39,20 +39,28 @@ Both connectors use one OAuth client since they hit the same Google account.
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → create
    a project (or reuse one) → **APIs & Services → Library** → enable
    **Gmail API** and **Google Calendar API**.
-2. **APIs & Services → OAuth consent screen** — set it up as "External" +
-   "Testing", add your own Google account as a test user.
+2. **APIs & Services → OAuth consent screen → Audience** — set it to
+   "External" + "Testing", then add your own Google account under **Test
+   users**. Skipping this is the #1 cause of "Access blocked" errors below.
 3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
-   → Application type "Desktop app". This gives you `GOOGLE_CLIENT_ID` and
-   `GOOGLE_CLIENT_SECRET`.
+   → Application type **Web application** (not "Desktop app" — the
+   Playground flow in step 4 needs a Web application client with its
+   redirect URI whitelisted). Under **Authorized redirect URIs**, add:
+   `https://developers.google.com/oauthplayground`
+   This gives you `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — the
+   secret is a separate value shown next to the ID, not the ID again.
 4. Generate a `GOOGLE_REFRESH_TOKEN` once, locally, using
    [Google's OAuth Playground](https://developers.google.com/oauthplayground/):
    - Gear icon (top right) → check "Use your own OAuth credentials" → paste
-     your client ID/secret.
+     the Client ID/Secret from step 3.
    - Step 1: select scopes `https://www.googleapis.com/auth/gmail.readonly`
-     and `https://www.googleapis.com/auth/calendar.readonly` → Authorize.
+     and `https://www.googleapis.com/auth/calendar.readonly` → Authorize
+     → sign in with the same account added as a test user in step 2.
    - Step 2: click "Exchange authorization code for tokens" → copy the
      **Refresh token** shown.
-5. Put all three values in `server/.env`.
+5. Put all three values (Client ID, Client Secret, Refresh Token) in
+   `server/.env` — they must all come from the same Web application
+   client, or the token refresh will fail with `invalid_client`.
 
 ## Device location
 
