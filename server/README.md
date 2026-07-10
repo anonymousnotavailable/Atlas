@@ -18,6 +18,13 @@ See `../CONNECTORS.md` for what each wire in `server/connectors/` needs.
 
 ## Run locally
 
+**Windows:** install [Node.js LTS](https://nodejs.org) if you haven't, then
+double-click `start.bat` in this folder. First run creates `.env` from
+`.env.example` and opens it in Notepad for you to paste your keys into —
+save and close Notepad to continue. It installs dependencies and starts the
+server automatically; keep the window open while using Atlas.
+
+**macOS/Linux:**
 ```bash
 cd server
 cp .env.example .env   # fill in ANTHROPIC_API_KEY at minimum
@@ -25,8 +32,9 @@ npm install
 npm start
 ```
 
-Open `http://localhost:8787` — it serves `index.html` directly, so no
-separate frontend server is needed.
+Either way, open `http://localhost:8787` in a browser **on the same
+machine** — it serves `index.html` directly, so no separate frontend
+server is needed.
 
 ## Environment variables
 
