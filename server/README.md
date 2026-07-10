@@ -4,8 +4,9 @@ Minimal Express server that keeps API keys off the client and serves the
 Atlas frontend (`index.html`).
 
 - `POST /api/chat` — builds the system prompt (personality + humour level +
-  `../knowledge/*.md`), runs a tool-use agent loop against the Anthropic
-  Messages API, and can call any wire in `server/connectors/`.
+  `../knowledge/*.md`), runs a tool-use agent loop against whichever chat
+  provider is configured (`server/providers/` — Gemini or Anthropic), and
+  can call any wire in `server/connectors/`.
 - `POST /api/speak` — proxies text to ElevenLabs TTS and streams back audio.
   Returns `501` if ElevenLabs isn't configured; the frontend falls back to
   the browser's built-in speech synthesis in that case.
@@ -27,7 +28,7 @@ server automatically; keep the window open while using Atlas.
 **macOS/Linux:**
 ```bash
 cd server
-cp .env.example .env   # fill in ANTHROPIC_API_KEY at minimum
+cp .env.example .env   # fill in GEMINI_API_KEY (free) or ANTHROPIC_API_KEY at minimum
 npm install
 npm start
 ```
@@ -40,6 +41,7 @@ server is needed.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `ANTHROPIC_API_KEY` | Yes | Powers all chat responses. |
-| `ANTHROPIC_MODEL` | No | Defaults to `claude-sonnet-4-6`. |
+| `GEMINI_API_KEY` | One of these two | Powers chat via Google Gemini — free tier, no card required. Preferred automatically if set. |
+| `ANTHROPIC_API_KEY` | One of these two | Powers chat via Claude — paid, higher quality. |
+| `CHAT_PROVIDER` | No | Set to `gemini` or `anthropic` to force one when both keys are present. Auto-detects otherwise. |
 | `ELEVENLABS_API_KEY` / `ELEVENLABS_VOICE_ID` | No | Enables higher-quality TTS. Without both, Atlas uses the browser's Web Speech API instead. |

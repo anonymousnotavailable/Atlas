@@ -2,6 +2,7 @@ const gmail = require("./gmail");
 const calendar = require("./calendar");
 const webfetch = require("./webfetch");
 const device = require("./device");
+const providers = require("../providers");
 
 const ALL_TOOLS = [...gmail, ...calendar, ...webfetch, ...device.tools];
 
@@ -24,8 +25,9 @@ async function executeTool(name, input) {
 // Every wire Atlas can reach, in one place — powers the "Wires" panel in
 // index.html and GET /api/status.
 function connectorStatus() {
+  const chatProvider = providers.selectProvider();
   return [
-    { id: "anthropic", label: "Chat (Anthropic)", connected: Boolean(process.env.ANTHROPIC_API_KEY) },
+    { id: "chat", label: `Chat (${chatProvider.name})`, connected: chatProvider.isConfigured() },
     { id: "elevenlabs", label: "Voice (ElevenLabs)", connected: Boolean(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID) },
     { id: "google", label: "Gmail + Calendar (Google)", connected: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN) },
     { id: "webFetch", label: "Web lookups", connected: true },

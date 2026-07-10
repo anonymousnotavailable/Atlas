@@ -15,7 +15,9 @@ the header is the one place to see everything that's connected.
 ## Current state
 
 - **Backend** (`server/server.js`) — Express server, tool-use agent loop
-  against the Anthropic API, serves `index.html` directly.
+  against a swappable chat provider (`server/providers/` — Gemini free
+  tier or Anthropic, auto-selected from whichever key is set), serves
+  `index.html` directly.
 - **Voice** — ElevenLabs TTS through the backend, falls back to the
   browser's Web Speech API if unconfigured. STT via `webkitSpeechRecognition`.
 - **Knowledge base** (`knowledge/*.md`) — personal context folded into the

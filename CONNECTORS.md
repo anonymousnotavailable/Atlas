@@ -3,7 +3,7 @@
 Every connector below degrades gracefully: if its env vars aren't set in
 `server/.env`, Atlas will tell you conversationally what's missing instead of
 crashing or silently failing. Add credentials in whatever order you get them
-— nothing needs to be done first except `ANTHROPIC_API_KEY`.
+— nothing needs to be done first except a chat provider (Gemini or Anthropic).
 
 Tap the **🔌 WIRES** chip in the Atlas header (or hit `GET /api/status`
 directly) for a live, single-place view of what's currently wired up.
@@ -22,9 +22,25 @@ not a web page.
 
 ---
 
-## Anthropic (required)
+## Chat — pick one (required)
 
-- `ANTHROPIC_API_KEY` — from the Anthropic Console.
+Atlas needs exactly one of these. If both are set, `CHAT_PROVIDER` picks
+which one wins; otherwise Gemini is preferred automatically since it's free.
+
+**Gemini (free, no card required — recommended if you don't want to pay):**
+- Go to [Google AI Studio](https://aistudio.google.com/apikey) → sign in →
+  **Create API key** → copy it → `GEMINI_API_KEY`.
+- `GEMINI_MODEL` defaults to `gemini-2.0-flash`. If Atlas errors with a
+  "model not found"-type message, open AI Studio and check the current
+  free-tier model name, then set `GEMINI_MODEL` to match — Google renames/
+  retires model versions over time.
+- Free tier has rate limits (requests per minute/day) generous enough for
+  personal use, but not unlimited — if Atlas suddenly stops responding, you
+  may have hit the daily quota; it resets the next day.
+
+**Anthropic (paid, higher quality):**
+- `ANTHROPIC_API_KEY` — from the [Anthropic Console](https://console.anthropic.com),
+  requires adding billing under Plans & Billing.
 
 ## ElevenLabs (voice)
 

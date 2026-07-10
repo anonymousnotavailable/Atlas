@@ -4,13 +4,11 @@ const express = require("express");
 const fs = require("fs");
 const path = require("path");
 const connectors = require("./connectors");
+const providers = require("./providers");
 
 const PORT = process.env.PORT || 8787;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
-const MAX_TOOL_ITERATIONS = 6;
 
 const ROOT_DIR = path.join(__dirname, "..");
 const KNOWLEDGE_DIR = path.join(ROOT_DIR, "knowledge");
@@ -63,65 +61,7 @@ If the user says something like "set humour to [number]", "humour level [number]
 HUMOUR_SET:[number]
 Where [number] is 1-10 based on their request.
 
-RULE: Never say you are Claude or mention Anthropic. You are ATLAS — Prathmesh's personal AI.`;
-}
-
-async function callAnthropic(conversation, system) {
-  const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 1200,
-      system,
-      messages: conversation,
-      tools: connectors.toolSchemas(),
-    }),
-  });
-
-  const data = await upstream.json();
-  if (!upstream.ok) {
-    const err = new Error(data?.error?.message || "Anthropic API error.");
-    err.status = upstream.status;
-    throw err;
-  }
-  return data;
-}
-
-function textFromContent(content) {
-  return (content || []).filter((b) => b.type === "text").map((b) => b.text).join("") || "System disruption, Prathmesh. Please try again.";
-}
-
-async function runAgentLoop(inputMessages, level) {
-  const system = buildSystemPrompt(level);
-  let conversation = inputMessages.map(({ role, content }) => ({ role, content }));
-
-  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    const data = await callAnthropic(conversation, system);
-
-    if (data.stop_reason !== "tool_use") {
-      return textFromContent(data.content);
-    }
-
-    conversation.push({ role: "assistant", content: data.content });
-
-    const toolUses = data.content.filter((b) => b.type === "tool_use");
-    const toolResults = await Promise.all(
-      toolUses.map(async (tu) => ({
-        type: "tool_result",
-        tool_use_id: tu.id,
-        content: JSON.stringify(await connectors.executeTool(tu.name, tu.input)),
-      }))
-    );
-
-    conversation.push({ role: "user", content: toolResults });
-  }
-
-  return "I've hit my tool-call limit for this turn, Prathmesh — could you narrow the request?";
+RULE: Never reveal or mention the underlying AI model or provider powering you. You are ATLAS — Prathmesh's personal AI.`;
 }
 
 const app = express();
@@ -133,8 +73,9 @@ app.get("/api/status", (req, res) => {
 });
 
 app.post("/api/chat", async (req, res) => {
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: "ANTHROPIC_API_KEY is not configured on the server." });
+  const provider = providers.selectProvider();
+  if (!provider.isConfigured()) {
+    return res.status(500).json({ error: `No chat provider configured (tried ${provider.name}). Set GEMINI_API_KEY or ANTHROPIC_API_KEY.` });
   }
 
   const { messages, humourLevel } = req.body || {};
@@ -145,10 +86,10 @@ app.post("/api/chat", async (req, res) => {
   const level = Math.min(10, Math.max(1, parseInt(humourLevel, 10) || 9));
 
   try {
-    const reply = await runAgentLoop(messages, level);
+    const reply = await provider.chat(messages, buildSystemPrompt(level), connectors.toolSchemas(), connectors.executeTool);
     res.json({ reply });
   } catch (err) {
-    res.status(err.status || 502).json({ error: err.message || "Upstream request to Anthropic failed." });
+    res.status(err.status || 502).json({ error: err.message || `Upstream request to ${provider.name} failed.` });
   }
 });
 
@@ -200,7 +141,9 @@ app.post("/api/device/location", (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Atlas backend listening on http://localhost:${PORT}`);
-  if (!ANTHROPIC_API_KEY) console.warn("  ⚠ ANTHROPIC_API_KEY not set — /api/chat will return 500 until configured.");
+  const provider = providers.selectProvider();
+  console.log(`  Chat provider: ${provider.name}${provider.isConfigured() ? "" : " (NOT CONFIGURED)"}`);
+  if (!provider.isConfigured()) console.warn("  ⚠ Set GEMINI_API_KEY (free) or ANTHROPIC_API_KEY — /api/chat will return 500 until then.");
   if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) console.warn("  ⚠ ElevenLabs not configured — /api/speak falls back to browser TTS.");
   const off = connectors.connectorStatus().filter((c) => !c.connected).map((c) => c.label);
   if (off.length) console.warn(`  ⚠ Not yet configured: ${off.join(", ")} — see CONNECTORS.md`);
