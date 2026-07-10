@@ -35,6 +35,16 @@ where to get it.
 
 ## Open items
 
+- **Gmail + Calendar refresh token — parked.** `GOOGLE_CLIENT_ID` is saved;
+  the refresh token isn't. The OAuth Playground route repeatedly hit
+  `Error 400: redirect_uri_mismatch` across multiple attempts and multiple
+  OAuth clients — likely a Cloud Console redirect URI config issue that
+  wasn't worth further live debugging. `server/scripts/get-google-refresh-token.js`
+  is a standalone, dependency-free alternative that sidesteps the problem
+  entirely (uses a "Desktop app" OAuth client, which Google exempts from
+  redirect URI registration) — pick this connector back up by running that
+  script locally, not the Playground. Everything else (chat, voice, web
+  lookups, device location) works independently of this.
 - **Browser control** — `web_fetch` is read-only lookups only. Full
   interactive control (clicking, filling forms, logging in as Prathmesh) is
   a separate, higher-effort piece, gated behind explicit confirmation per
