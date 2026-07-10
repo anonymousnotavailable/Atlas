@@ -829,7 +829,8 @@ async function sendMessage(overrideText) {
     if (autoSpeak) speak(reply);
 
   } catch(err) {
-    const errMsg = "I've encountered a disruption, Prathmesh. Please try your request again.";
+    const reason = err && err.message ? err.message : "unknown error";
+    const errMsg = `I've encountered a disruption, Prathmesh: ${reason}`;
     messages.push({ role: "assistant", content: errMsg });
     document.getElementById("thinking").style.display = "none";
     loading = false;
