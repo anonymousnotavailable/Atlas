@@ -41,26 +41,25 @@ Both connectors use one OAuth client since they hit the same Google account.
    **Gmail API** and **Google Calendar API**.
 2. **APIs & Services → OAuth consent screen → Audience** — set it to
    "External" + "Testing", then add your own Google account under **Test
-   users**. Skipping this is the #1 cause of "Access blocked" errors below.
+   users**. Skipping this causes "Access blocked" when authorizing below.
 3. **APIs & Services → Credentials → Create Credentials → OAuth client ID**
-   → Application type **Web application** (not "Desktop app" — the
-   Playground flow in step 4 needs a Web application client with its
-   redirect URI whitelisted). Under **Authorized redirect URIs**, add:
-   `https://developers.google.com/oauthplayground`
-   This gives you `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` — the
-   secret is a separate value shown next to the ID, not the ID again.
-4. Generate a `GOOGLE_REFRESH_TOKEN` once, locally, using
-   [Google's OAuth Playground](https://developers.google.com/oauthplayground/):
-   - Gear icon (top right) → check "Use your own OAuth credentials" → paste
-     the Client ID/Secret from step 3.
-   - Step 1: select scopes `https://www.googleapis.com/auth/gmail.readonly`
-     and `https://www.googleapis.com/auth/calendar.readonly` → Authorize
-     → sign in with the same account added as a test user in step 2.
-   - Step 2: click "Exchange authorization code for tokens" → copy the
-     **Refresh token** shown.
-5. Put all three values (Client ID, Client Secret, Refresh Token) in
-   `server/.env` — they must all come from the same Web application
-   client, or the token refresh will fail with `invalid_client`.
+   → Application type **Desktop app**. Unlike "Web application" clients,
+   Desktop app clients don't need a redirect URI registered at all — Google
+   exempts loopback addresses (`127.0.0.1`) from that requirement, which
+   avoids the fiddly, typo-prone "redirect_uri_mismatch" errors the OAuth
+   Playground method is prone to. This gives you `GOOGLE_CLIENT_ID` and
+   `GOOGLE_CLIENT_SECRET`.
+4. Put those two values in `server/.env`, then run the helper script once,
+   on the same machine/device as the browser you'll sign in with:
+   ```bash
+   cd server
+   node scripts/get-google-refresh-token.js
+   ```
+   It prints a Google sign-in URL — open it, sign in with the account added
+   as a test user in step 2, approve access, then return to the terminal.
+   The script catches the redirect on `127.0.0.1`, exchanges it for a
+   refresh token, and writes `GOOGLE_REFRESH_TOKEN` into `server/.env`
+   automatically.
 
 ## Device location
 
