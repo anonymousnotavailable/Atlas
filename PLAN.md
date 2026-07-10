@@ -1,5 +1,11 @@
 # ATLAS → Jarvis Dashboard: Implementation Plan
 
+> **Status:** Rows 0, 2, 4, 5, 6, 7, 8, 9 are wired up in code (`server/`,
+> `CONNECTORS.md`) and just need real credentials dropped into
+> `server/.env` — see `CONNECTORS.md` for exactly what to get. Row 3 has a
+> read-only `web_fetch` tool but not full interactive browser control.
+> Rows 1, 10, 11 are still open.
+
 Atlas today is a single-page chat UI (`index.html`) with browser-native STT/TTS
 and a direct client-side call to the Anthropic Messages API. Everything below
 maps the 11-capability wishlist onto concrete next steps for *this* codebase,

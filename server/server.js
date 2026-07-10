@@ -3,17 +3,17 @@ require("dotenv").config();
 const express = require("express");
 const fs = require("fs");
 const path = require("path");
+const connectors = require("./connectors");
 
 const PORT = process.env.PORT || 8787;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID;
+const MAX_TOOL_ITERATIONS = 6;
 
 const ROOT_DIR = path.join(__dirname, "..");
 const KNOWLEDGE_DIR = path.join(ROOT_DIR, "knowledge");
-
-const HUMOUR_LABELS = ["", "Robot", "Stoic", "Formal", "Reserved", "Balanced", "Witty", "Clever", "Banter", "Sharp", "Roast Mode"];
 
 function loadKnowledge() {
   if (!fs.existsSync(KNOWLEDGE_DIR)) return "";
@@ -56,6 +56,7 @@ YOUR CAPABILITIES:
 - Interview prep, resume guidance, career strategy, professional communication
 - Data science concepts, AI/ML fundamentals
 - General knowledge, research, brainstorming, planning
+- You have tools connected for Gmail, Google Calendar, RevenueCat, Buffer, Instagram, Meta Ads, device location, and web lookups. Use them when relevant instead of guessing. If a tool reports it isn't configured, tell Prathmesh plainly what credential is missing — don't pretend you don't have the capability.
 
 VOICE COMMAND DETECTION:
 If the user says something like "set humour to [number]", "humour level [number]", "be funnier", "go professional", respond with EXACTLY this format and nothing else:
@@ -65,9 +66,71 @@ Where [number] is 1-10 based on their request.
 RULE: Never say you are Claude or mention Anthropic. You are ATLAS — Prathmesh's personal AI.`;
 }
 
+async function callAnthropic(conversation, system) {
+  const upstream = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": ANTHROPIC_API_KEY,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: ANTHROPIC_MODEL,
+      max_tokens: 1200,
+      system,
+      messages: conversation,
+      tools: connectors.toolSchemas(),
+    }),
+  });
+
+  const data = await upstream.json();
+  if (!upstream.ok) {
+    const err = new Error(data?.error?.message || "Anthropic API error.");
+    err.status = upstream.status;
+    throw err;
+  }
+  return data;
+}
+
+function textFromContent(content) {
+  return (content || []).filter((b) => b.type === "text").map((b) => b.text).join("") || "System disruption, Prathmesh. Please try again.";
+}
+
+async function runAgentLoop(inputMessages, level) {
+  const system = buildSystemPrompt(level);
+  let conversation = inputMessages.map(({ role, content }) => ({ role, content }));
+
+  for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
+    const data = await callAnthropic(conversation, system);
+
+    if (data.stop_reason !== "tool_use") {
+      return textFromContent(data.content);
+    }
+
+    conversation.push({ role: "assistant", content: data.content });
+
+    const toolUses = data.content.filter((b) => b.type === "tool_use");
+    const toolResults = await Promise.all(
+      toolUses.map(async (tu) => ({
+        type: "tool_result",
+        tool_use_id: tu.id,
+        content: JSON.stringify(await connectors.executeTool(tu.name, tu.input)),
+      }))
+    );
+
+    conversation.push({ role: "user", content: toolResults });
+  }
+
+  return "I've hit my tool-call limit for this turn, Prathmesh — could you narrow the request?";
+}
+
 const app = express();
 app.use(express.json({ limit: "1mb" }));
 app.use(express.static(ROOT_DIR, { index: "index.html" }));
+
+app.get("/api/status", (req, res) => {
+  res.json({ connectors: connectors.connectorStatus() });
+});
 
 app.post("/api/chat", async (req, res) => {
   if (!ANTHROPIC_API_KEY) {
@@ -82,30 +145,10 @@ app.post("/api/chat", async (req, res) => {
   const level = Math.min(10, Math.max(1, parseInt(humourLevel, 10) || 9));
 
   try {
-    const upstream = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": ANTHROPIC_API_KEY,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: ANTHROPIC_MODEL,
-        max_tokens: 1000,
-        system: buildSystemPrompt(level),
-        messages: messages.map(({ role, content }) => ({ role, content })),
-      }),
-    });
-
-    const data = await upstream.json();
-    if (!upstream.ok) {
-      return res.status(upstream.status).json({ error: data?.error?.message || "Anthropic API error." });
-    }
-
-    const reply = (data.content || []).map((b) => b.text || "").join("") || "System disruption, Prathmesh. Please try again.";
+    const reply = await runAgentLoop(messages, level);
     res.json({ reply });
   } catch (err) {
-    res.status(502).json({ error: "Upstream request to Anthropic failed." });
+    res.status(err.status || 502).json({ error: err.message || "Upstream request to Anthropic failed." });
   }
 });
 
@@ -146,8 +189,20 @@ app.post("/api/speak", async (req, res) => {
   }
 });
 
+app.post("/api/device/location", (req, res) => {
+  const { lat, lng, accuracy } = req.body || {};
+  if (typeof lat !== "number" || typeof lng !== "number") {
+    return res.status(400).json({ error: "lat and lng (numbers) are required." });
+  }
+  connectors.setDeviceLocation({ lat, lng, accuracy: typeof accuracy === "number" ? accuracy : null });
+  res.json({ ok: true });
+});
+
 app.listen(PORT, () => {
   console.log(`Atlas backend listening on http://localhost:${PORT}`);
   if (!ANTHROPIC_API_KEY) console.warn("  ⚠ ANTHROPIC_API_KEY not set — /api/chat will return 500 until configured.");
   if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) console.warn("  ⚠ ElevenLabs not configured — /api/speak falls back to browser TTS.");
+  const status = connectors.connectorStatus();
+  const off = Object.entries(status).filter(([, v]) => v === false).map(([k]) => k);
+  if (off.length) console.warn(`  ⚠ Connectors not yet configured: ${off.join(", ")} — see CONNECTORS.md`);
 });

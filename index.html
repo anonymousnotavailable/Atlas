@@ -797,10 +797,28 @@ function renderQuickCmds() {
   ).join("");
 }
 
+// ─── DEVICE LOCATION ──────────────────────────────────────────────────────
+function reportLocation() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      fetch(`${API_BASE}/api/device/location`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy: pos.coords.accuracy })
+      }).catch(() => {});
+    },
+    () => { /* permission denied or unavailable — Atlas just won't have location context */ },
+    { enableHighAccuracy: false, timeout: 8000, maximumAge: 300000 }
+  );
+}
+
 // ─── INIT ─────────────────────────────────────────────────────────────────
 function init() {
   updateHumourUI();
   renderQuickCmds();
+  reportLocation();
+  setInterval(reportLocation, 15 * 60 * 1000);
 
   const welcome = "Good to see you online, Prathmesh. All systems are operational.\n\nI'm ATLAS — your personal AI. I can assist with code, data analytics, interview prep, career strategy, or anything else you need. What are we working on today?\n\nTip: Tap 🎙️ to speak to me, 🔊 to hear my response.";
   messages.push({ role: "assistant", content: welcome });
