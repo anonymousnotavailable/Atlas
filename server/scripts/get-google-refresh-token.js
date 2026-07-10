@@ -17,13 +17,21 @@
 //      it inside a remote/cloud session won't work if you're signing in
 //      from your phone or a different computer.
 //
-// Usage:
-//   cd server
+// Usage (any one of these):
+//   node get-google-refresh-token.js <CLIENT_ID> <CLIENT_SECRET>
 //   GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... node scripts/get-google-refresh-token.js
-//   (or put GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in server/.env first — this
-//   script loads that file automatically)
+//   (or put GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET in server/.env — auto-loaded
+//   if this file is run from inside the Atlas repo's server/scripts/ folder)
+//
+// No dependencies beyond Node.js itself (18+) — safe to copy this single
+// file anywhere and run it standalone, no npm install required.
 
-require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
+try {
+  require("dotenv").config({ path: require("path").join(__dirname, "..", ".env") });
+} catch (_) {
+  // dotenv not installed / not running inside the repo — fine, CLI args or
+  // real env vars still work.
+}
 
 const http = require("http");
 const path = require("path");
@@ -36,11 +44,12 @@ const SCOPES = [
   "https://www.googleapis.com/auth/calendar.readonly",
 ].join(" ");
 
-const CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const CLIENT_ID = process.argv[2] || process.env.GOOGLE_CLIENT_ID;
+const CLIENT_SECRET = process.argv[3] || process.env.GOOGLE_CLIENT_SECRET;
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
-  console.error("Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET first (in server/.env or as env vars).");
+  console.error("Usage: node get-google-refresh-token.js <CLIENT_ID> <CLIENT_SECRET>");
+  console.error("(or set GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET as env vars / in server/.env)");
   console.error("These must come from a 'Desktop app' type OAuth client — see CONNECTORS.md.");
   process.exit(1);
 }
