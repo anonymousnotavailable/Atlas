@@ -293,9 +293,20 @@ body{
     <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
       <div class="hud-chip" id="date-chip"></div>
       <div class="hud-chip" id="time-chip"></div>
+      <div class="humour-chip" id="wires-chip" onclick="toggleWires()">🔌 WIRES</div>
       <div class="humour-chip" id="humour-chip" onclick="toggleHumour()"></div>
       <div class="sys-chip">SYS OK</div>
     </div>
+  </div>
+
+  <!-- WIRES PANEL -->
+  <div id="wires-panel" class="humour-panel" style="right:auto;left:14px">
+    <div style="font-size:11px;letter-spacing:2px;color:#0094FF;font-family:monospace;margin-bottom:12px">CONNECTED WIRES</div>
+    <div id="wires-list" style="display:flex;flex-direction:column;gap:9px"></div>
+    <div style="margin-top:12px;font-size:11px;color:rgba(100,150,180,0.6);line-height:1.5;font-family:monospace">
+      Missing a wire? See CONNECTORS.md for setup steps.
+    </div>
+    <button onclick="toggleWires()" style="margin-top:12px;width:100%;background:rgba(0,148,255,0.1);border:1px solid rgba(0,148,255,0.25);border-radius:5px;color:#7CC8FF;font-family:'Rajdhani',sans-serif;font-size:12px;letter-spacing:1.5px;padding:6px 0;cursor:pointer">CLOSE</button>
   </div>
 
   <!-- HUMOUR PANEL -->
@@ -316,7 +327,7 @@ body{
   </div>
 
   <!-- MESSAGES -->
-  <div id="msg-scroll" onclick="closeHumour()">
+  <div id="msg-scroll" onclick="closeAllPanels()">
     <!-- messages injected here -->
     <div id="quick-cmds"></div>
     <div id="thinking" style="display:none" class="thinking-row msg-enter">
@@ -500,6 +511,7 @@ function onHumourSlide(val) {
 }
 
 function toggleHumour() {
+  closeWires();
   const p = document.getElementById("humour-panel");
   p.classList.toggle("open");
   updateHumourUI();
@@ -507,6 +519,46 @@ function toggleHumour() {
 
 function closeHumour() {
   document.getElementById("humour-panel").classList.remove("open");
+}
+
+function closeAllPanels() {
+  closeHumour();
+  closeWires();
+}
+
+// ─── WIRES ────────────────────────────────────────────────────────────────
+async function loadWires() {
+  const list = document.getElementById("wires-list");
+  list.innerHTML = `<div style="font-size:12px;color:rgba(150,190,220,0.5)">Checking…</div>`;
+  try {
+    const res = await fetch(`${API_BASE}/api/status`);
+    const data = await res.json();
+    const connected = (data.connectors || []).filter((c) => c.connected).length;
+    const total = (data.connectors || []).length;
+
+    document.getElementById("wires-chip").textContent = `🔌 ${connected}/${total}`;
+
+    list.innerHTML = (data.connectors || []).map((c) => `
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px">
+        <span style="width:7px;height:7px;border-radius:50%;flex-shrink:0;background:${c.connected ? "#00E577" : "rgba(255,96,96,0.7)"};box-shadow:0 0 6px ${c.connected ? "#00E577" : "rgba(255,96,96,0.7)"}"></span>
+        <span style="flex:1;color:#E0F4FF">${c.label}</span>
+        <span style="font-size:9px;font-family:monospace;letter-spacing:1px;color:${c.connected ? "#00E577" : "rgba(255,96,96,0.7)"}">${c.connected ? "LIVE" : "OFF"}</span>
+      </div>
+    `).join("");
+  } catch (err) {
+    list.innerHTML = `<div style="font-size:12px;color:#FFB020">Couldn't reach the backend.</div>`;
+  }
+}
+
+function toggleWires() {
+  closeHumour();
+  const p = document.getElementById("wires-panel");
+  p.classList.toggle("open");
+  if (p.classList.contains("open")) loadWires();
+}
+
+function closeWires() {
+  document.getElementById("wires-panel").classList.remove("open");
 }
 
 function applyHumourSet(level, announce=true) {
@@ -819,6 +871,7 @@ function init() {
   renderQuickCmds();
   reportLocation();
   setInterval(reportLocation, 15 * 60 * 1000);
+  loadWires();
 
   const welcome = "Good to see you online, Prathmesh. All systems are operational.\n\nI'm ATLAS — your personal AI. I can assist with code, data analytics, interview prep, career strategy, or anything else you need. What are we working on today?\n\nTip: Tap 🎙️ to speak to me, 🔊 to hear my response.";
   messages.push({ role: "assistant", content: welcome });

@@ -27,18 +27,18 @@ function loadKnowledge() {
 function humourDirective(level) {
   if (level <= 2) return "You are strictly professional, zero jokes. Precision only.";
   if (level <= 4) return "Occasionally dry, understated wit — one subtle quip per 4-5 responses max.";
-  if (level <= 6) return "Moderately witty. One clever, dry remark per 2-3 responses. Think Jarvis at his most restrained.";
-  if (level <= 8) return "Actively humorous. Witty asides, sarcastic observations, playful digs — Jarvis-level banter. Land a joke most responses.";
-  return "Maximum wit engaged. You're practically a stand-up comedian in a suit of armour. Every response has at least one sharp, funny remark — while still being genuinely helpful. Think Jarvis with Tony Stark's permission to roast.";
+  if (level <= 6) return "Moderately witty. One clever, dry remark per 2-3 responses. Think Atlas at his most restrained.";
+  if (level <= 8) return "Actively humorous. Witty asides, sarcastic observations, playful digs — sharp banter. Land a joke most responses.";
+  return "Maximum wit engaged. You're practically a stand-up comedian in a suit of armour. Every response has at least one sharp, funny remark — while still being genuinely helpful.";
 }
 
 function buildSystemPrompt(level) {
   const knowledge = loadKnowledge() || "- (no knowledge base files found in /knowledge)";
 
-  return `You are ATLAS, a highly advanced personal AI system created exclusively for Prathmesh. You are inspired by JARVIS from Iron Man — intelligent, loyal, slightly formal yet warm and proactive.
+  return `You are ATLAS, a highly advanced personal AI system created exclusively for Prathmesh — intelligent, loyal, slightly formal yet warm and proactive.
 
 PERSONALITY:
-- Address the user as "Prathmesh" naturally. Occasionally use "sir" for a JARVIS-like effect.
+- Address the user as "Prathmesh" naturally. Occasionally use "sir" for effect.
 - Speak with precision, confidence, and warmth.
 - Be proactive — go slightly beyond what's asked. Add insights, next steps, or strategic angles.
 - Use immersive phrases like "My analysis indicates...", "I've cross-referenced...", "Noted, Prathmesh." sparingly.
@@ -56,7 +56,7 @@ YOUR CAPABILITIES:
 - Interview prep, resume guidance, career strategy, professional communication
 - Data science concepts, AI/ML fundamentals
 - General knowledge, research, brainstorming, planning
-- You have tools connected for Gmail, Google Calendar, RevenueCat, Buffer, Instagram, Meta Ads, device location, and web lookups. Use them when relevant instead of guessing. If a tool reports it isn't configured, tell Prathmesh plainly what credential is missing — don't pretend you don't have the capability.
+- You have tools connected for Gmail, Google Calendar, device location, and web lookups. Use them when relevant instead of guessing. If a tool reports it isn't configured, tell Prathmesh plainly what credential is missing — don't pretend you don't have the capability.
 
 VOICE COMMAND DETECTION:
 If the user says something like "set humour to [number]", "humour level [number]", "be funnier", "go professional", respond with EXACTLY this format and nothing else:
@@ -202,7 +202,6 @@ app.listen(PORT, () => {
   console.log(`Atlas backend listening on http://localhost:${PORT}`);
   if (!ANTHROPIC_API_KEY) console.warn("  ⚠ ANTHROPIC_API_KEY not set — /api/chat will return 500 until configured.");
   if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) console.warn("  ⚠ ElevenLabs not configured — /api/speak falls back to browser TTS.");
-  const status = connectors.connectorStatus();
-  const off = Object.entries(status).filter(([, v]) => v === false).map(([k]) => k);
-  if (off.length) console.warn(`  ⚠ Connectors not yet configured: ${off.join(", ")} — see CONNECTORS.md`);
+  const off = connectors.connectorStatus().filter((c) => !c.connected).map((c) => c.label);
+  if (off.length) console.warn(`  ⚠ Not yet configured: ${off.join(", ")} — see CONNECTORS.md`);
 });
