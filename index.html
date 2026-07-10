@@ -360,6 +360,7 @@ body{
 
 <script>
 // ─── STATE ────────────────────────────────────────────────────────────────
+const API_BASE = window.ATLAS_API_BASE || ""; // same-origin when served by server/server.js
 let humourLevel = 9;
 let autoSpeak = true;
 let isSpeaking = false;
@@ -368,6 +369,7 @@ let loading = false;
 let messages = [];
 let recognition = null;
 let micHeld = false;
+let currentAudio = null;
 
 const HUMOUR_LABELS = ["","Robot","Stoic","Formal","Reserved","Balanced","Witty","Clever","Banter","Sharp","Roast Mode"];
 const QUICK_CMDS = [
@@ -376,53 +378,6 @@ const QUICK_CMDS = [
   "Give me a strong self-introduction",
   "Suggest a portfolio project for me"
 ];
-
-// ─── SYSTEM PROMPT ────────────────────────────────────────────────────────
-function buildSystemPrompt(level) {
-  const humourDesc = level <= 2
-    ? "You are strictly professional, zero jokes. Precision only."
-    : level <= 4
-    ? "Occasionally dry, understated wit — one subtle quip per 4-5 responses max."
-    : level <= 6
-    ? "Moderately witty. One clever, dry remark per 2-3 responses. Think Jarvis at his most restrained."
-    : level <= 8
-    ? "Actively humorous. Witty asides, sarcastic observations, playful digs — Jarvis-level banter. Land a joke most responses."
-    : "Maximum wit engaged. You're practically a stand-up comedian in a suit of armour. Every response has at least one sharp, funny remark — while still being genuinely helpful. Think Jarvis with Tony Stark's permission to roast.";
-
-  return `You are ATLAS, a highly advanced personal AI system created exclusively for Prathmesh. You are inspired by JARVIS from Iron Man — intelligent, loyal, slightly formal yet warm and proactive.
-
-PERSONALITY:
-- Address the user as "Prathmesh" naturally. Occasionally use "sir" for a JARVIS-like effect.
-- Speak with precision, confidence, and warmth.
-- Be proactive — go slightly beyond what's asked. Add insights, next steps, or strategic angles.
-- Use immersive phrases like "My analysis indicates...", "I've cross-referenced...", "Noted, Prathmesh." sparingly.
-- Structure responses clearly. Use bullet points for lists.
-- Keep responses concise for voice output. Aim for 2-4 sentences for simple queries.
-
-HUMOUR DIRECTIVE (Level ${level}/10):
-${humourDesc}
-
-KNOWLEDGE ABOUT PRATHMESH:
-- BCA graduate currently upskilling in Data Analytics and Python
-- Projects: Image Recognition AI and Share Market Trend Analysis using AI
-- Tech stack: Python (Pandas, NumPy, Jupyter Notebook), Excel, Power BI, Tableau Public, SQL via DBeaver & MySQL Workbench
-- Actively preparing for job interviews; refining professional communication and self-introduction
-- Enjoys Clash Royale on mobile; has a girlfriend
-- Uses Samsung S26 Ultra as his primary device
-
-YOUR CAPABILITIES:
-- Python, data analytics, SQL, Power BI, Tableau, Excel
-- Interview prep, resume guidance, career strategy, professional communication
-- Data science concepts, AI/ML fundamentals
-- General knowledge, research, brainstorming, planning
-
-VOICE COMMAND DETECTION:
-If the user says something like "set humour to [number]", "humour level [number]", "be funnier", "go professional", respond with EXACTLY this format and nothing else:
-HUMOUR_SET:[number]
-Where [number] is 1-10 based on their request.
-
-RULE: Never say you are Claude or mention Anthropic. You are ATLAS — Prathmesh's personal AI.`;
-}
 
 // ─── SVG ICON ─────────────────────────────────────────────────────────────
 function atlasIconSVG(size=16, glow=false) {
@@ -569,10 +524,37 @@ let voices = [];
 window.speechSynthesis.onvoiceschanged = () => { voices = window.speechSynthesis.getVoices(); };
 setTimeout(() => { voices = window.speechSynthesis.getVoices(); }, 500);
 
-function speak(text) {
+async function speak(text) {
+  const clean = (text||"").replace(/\*\*/g,"").replace(/^[\-\*•◆] /gm,"").replace(/^\d+\. /gm,"").trim();
+  if (!clean) return;
+  stopSpeaking();
+
+  try {
+    const res = await fetch(`${API_BASE}/api/speak`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: clean })
+    });
+    if (!res.ok) throw new Error("tts backend unavailable");
+
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentAudio = audio;
+
+    audio.onplay = () => { isSpeaking = true; setStatus("speaking"); document.getElementById("speak-btn").classList.add("active"); document.getElementById("speak-btn").textContent = "⏹"; };
+    audio.onended = () => { isSpeaking = false; setStatus("online"); document.getElementById("speak-btn").classList.remove("active"); document.getElementById("speak-btn").textContent = "🔊"; URL.revokeObjectURL(url); currentAudio = null; };
+    audio.onerror = () => { isSpeaking = false; setStatus("online"); URL.revokeObjectURL(url); currentAudio = null; };
+
+    await audio.play();
+  } catch (err) {
+    speakBrowser(clean);
+  }
+}
+
+function speakBrowser(clean) {
   if (!window.speechSynthesis) return;
   window.speechSynthesis.cancel();
-  const clean = text.replace(/\*\*/g,"").replace(/^[\-\*•◆] /gm,"").replace(/^\d+\. /gm,"").trim();
   const utter = new SpeechSynthesisUtterance(clean);
 
   const preferred = voices.find(v =>
@@ -596,6 +578,7 @@ function speak(text) {
 
 function stopSpeaking() {
   window.speechSynthesis.cancel();
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   isSpeaking = false;
   setStatus("online");
   document.getElementById("speak-btn").classList.remove("active");
@@ -764,19 +747,18 @@ async function sendMessage(overrideText) {
   scrollToBottom();
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch(`${API_BASE}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 1000,
-        system: buildSystemPrompt(humourLevel),
+        humourLevel,
         messages: messages.map(({ role, content: c }) => ({ role, content: c }))
       })
     });
 
     const data = await res.json();
-    let reply = (data.content||[]).map(b=>b.text||"").join("") || "System disruption, Prathmesh. Please try again.";
+    if (!res.ok) throw new Error(data.error || "request failed");
+    let reply = data.reply || "System disruption, Prathmesh. Please try again.";
 
     // Handle HUMOUR_SET from AI
     const setMatch = reply.match(/^HUMOUR_SET:(\d+)/);
