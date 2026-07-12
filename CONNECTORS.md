@@ -30,7 +30,7 @@ which one wins; otherwise Gemini is preferred automatically since it's free.
 **Gemini (free, no card required — recommended if you don't want to pay):**
 - Go to [Google AI Studio](https://aistudio.google.com/apikey) → sign in →
   **Create API key** → copy it → `GEMINI_API_KEY`.
-- `GEMINI_MODEL` defaults to `gemini-2.0-flash`. If Atlas errors with a
+- `GEMINI_MODEL` defaults to `gemini-2.5-flash`. If Atlas errors with a
   "model not found"-type message, open AI Studio and check the current
   free-tier model name, then set `GEMINI_MODEL` to match — Google renames/
   retires model versions over time.
