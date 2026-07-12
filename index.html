@@ -587,7 +587,10 @@ async function speak(text) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text: clean })
     });
-    if (!res.ok) throw new Error("tts backend unavailable");
+    if (!res.ok) {
+      const errBody = await res.text().catch(() => "");
+      throw new Error(`ElevenLabs backend returned ${res.status}: ${errBody}`);
+    }
 
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
@@ -600,6 +603,7 @@ async function speak(text) {
 
     await audio.play();
   } catch (err) {
+    console.error("[Atlas] ElevenLabs voice failed, falling back to browser voice:", err);
     speakBrowser(clean);
   }
 }
