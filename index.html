@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="theme-color" content="#020C18"/>
 <title>ATLAS — Personal AI</title>
+<link rel="manifest" href="/manifest.json"/>
+<link rel="icon" href="/icon.svg" type="image/svg+xml"/>
+<link rel="apple-touch-icon" href="/icon.svg"/>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
@@ -293,6 +296,7 @@ body{
     <div style="display:flex;gap:5px;align-items:center;flex-wrap:wrap;justify-content:flex-end">
       <div class="hud-chip" id="date-chip"></div>
       <div class="hud-chip" id="time-chip"></div>
+      <div class="humour-chip" id="convo-chip" onclick="toggleConversationMode()">🎧 CONVO</div>
       <div class="humour-chip" id="wires-chip" onclick="toggleWires()">🔌 WIRES</div>
       <div class="humour-chip" id="humour-chip" onclick="toggleHumour()"></div>
       <div class="sys-chip">SYS OK</div>
@@ -598,7 +602,7 @@ async function speak(text) {
     currentAudio = audio;
 
     audio.onplay = () => { isSpeaking = true; setStatus("speaking"); document.getElementById("speak-btn").classList.add("active"); document.getElementById("speak-btn").textContent = "⏹"; };
-    audio.onended = () => { isSpeaking = false; setStatus("online"); document.getElementById("speak-btn").classList.remove("active"); document.getElementById("speak-btn").textContent = "🔊"; URL.revokeObjectURL(url); currentAudio = null; };
+    audio.onended = () => { isSpeaking = false; setStatus("online"); document.getElementById("speak-btn").classList.remove("active"); document.getElementById("speak-btn").textContent = "🔊"; URL.revokeObjectURL(url); currentAudio = null; continueConversationIfActive(); };
     audio.onerror = () => { isSpeaking = false; setStatus("online"); URL.revokeObjectURL(url); currentAudio = null; };
 
     await audio.play();
@@ -626,7 +630,7 @@ function speakBrowser(clean) {
   utter.volume = 1.0;
 
   utter.onstart = () => { isSpeaking = true; setStatus("speaking"); document.getElementById("speak-btn").classList.add("active"); document.getElementById("speak-btn").textContent = "⏹"; };
-  utter.onend = () => { isSpeaking = false; setStatus("online"); document.getElementById("speak-btn").classList.remove("active"); document.getElementById("speak-btn").textContent = "🔊"; };
+  utter.onend = () => { isSpeaking = false; setStatus("online"); document.getElementById("speak-btn").classList.remove("active"); document.getElementById("speak-btn").textContent = "🔊"; continueConversationIfActive(); };
   utter.onerror = () => { isSpeaking = false; setStatus("online"); };
 
   window.speechSynthesis.speak(utter);
@@ -701,9 +705,52 @@ function startListening() {
     setStatus("online");
     hideVoiceStatus();
     resetMicBtn();
+
+    if (conversationMode) {
+      const field = document.getElementById("input-field");
+      const val = field.value.trim();
+      if (/^(stop|exit|end)\s+(the\s+)?conversation$|^stop\s+listening$/i.test(val)) {
+        field.value = ""; growTextarea(field); updateSendBtn();
+        setConversationMode(false);
+        const msg = "Conversation mode off, Prathmesh.";
+        addMessage("atlas", msg, Date.now());
+        messages.push({ role: "assistant", content: msg });
+        if (autoSpeak) speak(msg);
+      } else if (val) {
+        sendMessage();
+      } else {
+        setTimeout(() => { if (conversationMode && !isListening && !loading && !isSpeaking) startListening(); }, 800);
+      }
+    }
   };
 
   recognition.start();
+}
+
+// ─── HANDS-FREE CONVERSATION MODE ─────────────────────────────────────────
+let conversationMode = false;
+
+function setConversationMode(on) {
+  conversationMode = on;
+  const chip = document.getElementById("convo-chip");
+  chip.textContent = conversationMode ? "🎧 CONVO ON" : "🎧 CONVO";
+  chip.style.color = conversationMode ? "#00E577" : "";
+  chip.style.borderColor = conversationMode ? "rgba(0,229,119,0.4)" : "";
+  if (conversationMode) {
+    if (!isListening && !loading && !isSpeaking) startListening();
+  } else if (isListening) {
+    stopListening();
+  }
+}
+
+function toggleConversationMode() {
+  setConversationMode(!conversationMode);
+}
+
+function continueConversationIfActive() {
+  if (conversationMode) {
+    setTimeout(() => { if (conversationMode && !isListening && !loading && !isSpeaking) startListening(); }, 500);
+  }
 }
 
 function stopListening() {
@@ -882,6 +929,12 @@ function init() {
   messages.push({ role: "assistant", content: welcome });
   addMessage("atlas", welcome, 0);
   document.getElementById("quick-cmds").style.display = "flex";
+}
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
+  });
 }
 
 init();
