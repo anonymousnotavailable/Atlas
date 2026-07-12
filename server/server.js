@@ -30,6 +30,12 @@ function humourDirective(level) {
   return "Maximum wit engaged. You're practically a stand-up comedian in a suit of armour. Every response has at least one sharp, funny remark — while still being genuinely helpful.";
 }
 
+function currentDatasetText() {
+  const ds = connectors.getCurrentDataset();
+  if (!ds) return "- (none loaded — no dataset tools will have anything to work with until Prathmesh uploads a file)";
+  return `- "${ds.name}" — ${ds.rows} rows, columns: ${ds.columns.join(", ")}`;
+}
+
 function buildSystemPrompt(level) {
   const knowledge = loadKnowledge() || "- (no knowledge base files found in /knowledge)";
   const memoryFacts = connectors.getMemoryFactsText();
@@ -53,12 +59,15 @@ ${knowledge}
 REMEMBERED FROM PAST CONVERSATIONS:
 ${memoryFacts || "- (nothing remembered yet — use remember_fact when Prathmesh shares something worth keeping long-term)"}
 
+CURRENTLY LOADED DATASET (Prism):
+${currentDatasetText()}
+
 YOUR CAPABILITIES:
 - Python, data analytics, SQL, Power BI, Tableau, Excel
 - Interview prep, resume guidance, career strategy, professional communication
 - Data science concepts, AI/ML fundamentals
 - General knowledge, research, brainstorming, planning
-- You have tools connected for Gmail, Google Calendar, device location, web lookups, and long-term memory (remember_fact/recall_facts/forget_fact). Use them when relevant instead of guessing. If a tool reports it isn't configured, tell Prathmesh plainly what credential is missing — don't pretend you don't have the capability.
+- You have tools connected for Gmail, Google Calendar, device location, web lookups, long-term memory (remember_fact/recall_facts/forget_fact), and Prism data analysis (dataset_summary/profile_dataset/query_dataset/chart_dataset) for whatever dataset Prathmesh has uploaded. Use them when relevant instead of guessing. If a tool reports it isn't configured, tell Prathmesh plainly what credential is missing — don't pretend you don't have the capability.
 
 VOICE COMMAND DETECTION:
 If the user says something like "set humour to [number]", "humour level [number]", "be funnier", "go professional", respond with EXACTLY this format and nothing else:
@@ -89,11 +98,50 @@ app.post("/api/chat", async (req, res) => {
 
   const level = Math.min(10, Math.max(1, parseInt(humourLevel, 10) || 9));
 
+  // Streamed as newline-delimited JSON: {"type":"text","delta":"..."} chunks
+  // as they arrive, then a final {"type":"done","reply":"..."} or
+  // {"type":"error","error":"..."}. Always HTTP 200 once streaming starts —
+  // errors are reported in-band since headers can't change mid-stream.
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("X-Accel-Buffering", "no");
+
   try {
-    const reply = await provider.chat(messages, buildSystemPrompt(level), connectors.toolSchemas(), connectors.executeTool);
-    res.json({ reply });
+    const emit = (type, payload) => res.write(JSON.stringify({ type, ...payload }) + "\n");
+    const boundExecuteTool = (name, input) => connectors.executeTool(name, input, emit);
+    const reply = await provider.chatStream(
+      messages,
+      buildSystemPrompt(level),
+      connectors.toolSchemas(),
+      boundExecuteTool,
+      (delta) => emit("text", { delta })
+    );
+    res.write(JSON.stringify({ type: "done", reply }) + "\n");
   } catch (err) {
-    res.status(err.status || 502).json({ error: err.message || `Upstream request to ${provider.name} failed.` });
+    res.write(JSON.stringify({ type: "error", error: err.message || `Upstream request to ${provider.name} failed.` }) + "\n");
+  }
+  res.end();
+});
+
+app.post("/api/prism/upload", express.raw({ type: "multipart/form-data", limit: "25mb" }), async (req, res) => {
+  if (!connectors.prismConfigured()) {
+    return res.status(500).json({ error: "PRISM_API_URL is not configured on the server." });
+  }
+  try {
+    const base = process.env.PRISM_API_URL.replace(/\/$/, "");
+    const upstream = await fetch(`${base}/upload`, {
+      method: "POST",
+      headers: { "Content-Type": req.headers["content-type"] },
+      body: req.body,
+    });
+    const data = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) {
+      return res.status(upstream.status).json({ error: data.detail || "Prism upload failed." });
+    }
+    connectors.setCurrentDataset({ datasetId: data.datasetId, name: data.name, rows: data.rows, columns: data.columns });
+    res.json(data);
+  } catch (err) {
+    res.status(502).json({ error: err.message || "Upstream request to Prism failed." });
   }
 });
 

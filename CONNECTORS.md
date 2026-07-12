@@ -93,3 +93,26 @@ interactive browser control (clicking, filling forms, logging in as you)
 is a separate, higher-effort piece — see PLAN.md row 3 — and intentionally
 wasn't wired up unattended given the blast radius of an agent driving a
 real browser session under your identity.
+
+## Memory
+
+No credential needed — Atlas can save/recall/forget facts about you across
+conversations via `server/data/memory.json` (gitignored, local disk).
+Free-tier hosting (Render) wipes disk on redeploy/restart, so treat this as
+durable within a deployment, not permanently forever.
+
+## Prism (data analysis)
+
+Prism (the separate Auto-EDA project) exposes a small API — `prism/api/` in
+that repo — that Atlas calls into so you can upload a CSV/Excel file via the
+📊 button and ask Atlas to query, profile, or chart it.
+
+1. Deploy `prism/api/` as its own web service (see that repo's
+   `render.yaml`, or run locally: `cd prism/api && pip install -r
+   requirements.txt && uvicorn main:app --host 0.0.0.0 --port 8000`).
+2. Set `PRISM_API_URL` in `server/.env` to that service's URL (e.g.
+   `http://localhost:8000` locally, or its Render URL once deployed).
+
+Datasets live in the Prism API's memory only — nothing is written to disk,
+and a server restart means re-uploading. Only one dataset is "active" at a
+time, matching how Prism's own Streamlit app works.

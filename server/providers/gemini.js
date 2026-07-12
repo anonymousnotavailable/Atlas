@@ -69,27 +69,98 @@ async function callGemini(contents, systemInstruction, tools) {
 }
 
 async function chat(inputMessages, system, toolSchemas, executeTool) {
+  return chatStream(inputMessages, system, toolSchemas, executeTool, null);
+}
+
+// Parses a fetch Response body in Gemini's SSE stream format. Line-based
+// rather than blank-line-block-based: Gemini's actual output is "data:
+// {...}\n" per event without a guaranteed trailing blank line (confirmed by
+// direct testing — a single-event response had no "\n\n" anywhere in the
+// body at all, which silently dropped every event under a block-based
+// parser). Each data: line's JSON payload is always single-line since JSON
+// escapes embedded newlines, so line-based splitting is safe and robust to
+// either framing style.
+async function* sseEvents(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    let idx;
+    while ((idx = buffer.indexOf("\n")) !== -1) {
+      const line = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 1);
+      if (!line.startsWith("data:")) continue;
+      const jsonStr = line.slice(5).trim();
+      if (!jsonStr) continue;
+      try { yield JSON.parse(jsonStr); } catch (e) { /* skip malformed chunk */ }
+    }
+  }
+  if (buffer.startsWith("data:")) {
+    const jsonStr = buffer.slice(5).trim();
+    if (jsonStr) { try { yield JSON.parse(jsonStr); } catch (e) {} }
+  }
+}
+
+async function callGeminiStream(contents, systemInstruction, tools) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${process.env.GEMINI_API_KEY}`;
+  const upstream = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      system_instruction: { parts: [{ text: systemInstruction }] },
+      contents,
+      ...(tools ? { tools } : {}),
+    }),
+  });
+
+  if (!upstream.ok) {
+    const data = await upstream.json().catch(() => ({}));
+    const err = new Error(data?.error?.message || `Gemini API error (${upstream.status}).`);
+    err.status = upstream.status;
+    throw err;
+  }
+  return upstream;
+}
+
+// Streams text deltas to onDelta(text) as they arrive. Tool-call turns
+// (functionCall parts) aren't streamed character-by-character — Gemini
+// sends a function call as one complete part, not incremental deltas — so
+// those turns execute the tool and loop silently before the next turn
+// (which does stream) begins.
+async function chatStream(inputMessages, system, toolSchemas, executeTool, onDelta) {
   let contents = toGeminiContents(inputMessages);
   const tools = toGeminiTools(toolSchemas);
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
-    const data = await callGemini(contents, system, tools);
-    const parts = data.candidates?.[0]?.content?.parts || [];
-    const functionCalls = parts.filter((p) => p.functionCall);
+    const upstream = await callGeminiStream(contents, system, tools);
 
-    if (functionCalls.length === 0) {
-      const text = parts.filter((p) => p.text).map((p) => p.text).join("");
-      return text || "System disruption, Prathmesh. Please try again.";
+    let fullText = "";
+    const functionCalls = [];
+
+    for await (const event of sseEvents(upstream)) {
+      const parts = event.candidates?.[0]?.content?.parts || [];
+      for (const part of parts) {
+        if (part.text) {
+          fullText += part.text;
+          if (onDelta) onDelta(part.text);
+        } else if (part.functionCall) {
+          functionCalls.push(part.functionCall);
+        }
+      }
     }
 
-    contents.push({ role: "model", parts });
+    if (functionCalls.length === 0) {
+      return fullText || "System disruption, Prathmesh. Please try again.";
+    }
+
+    contents.push({ role: "model", parts: functionCalls.map((fc) => ({ functionCall: fc })) });
 
     const responseParts = await Promise.all(
       functionCalls.map(async (fc) => ({
-        functionResponse: {
-          name: fc.functionCall.name,
-          response: await executeTool(fc.functionCall.name, fc.functionCall.args || {}),
-        },
+        functionResponse: { name: fc.name, response: await executeTool(fc.name, fc.args || {}) },
       }))
     );
 
@@ -99,4 +170,4 @@ async function chat(inputMessages, system, toolSchemas, executeTool) {
   return "I've hit my tool-call limit for this turn, Prathmesh — could you narrow the request?";
 }
 
-module.exports = { name: "Gemini", isConfigured, chat };
+module.exports = { name: "Gemini", isConfigured, chat, chatStream };

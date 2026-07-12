@@ -361,6 +361,8 @@ body{
       <span id="voice-status-text">LISTENING — speak now</span>
     </div>
     <div class="controls-row">
+      <input type="file" id="dataset-file" accept=".csv,.xlsx,.xls" style="display:none" onchange="onDatasetFileChosen(event)"/>
+      <button class="speak-btn" id="upload-btn" onclick="document.getElementById('dataset-file').click()" title="Upload a dataset (CSV/Excel)">📊</button>
       <button class="mic-btn" id="mic-btn" ontouchstart="onMicDown(event)" ontouchend="onMicUp(event)" onclick="toggleMic()">🎙️</button>
       <textarea class="input-field" id="input-field" placeholder="Command Atlas… or speak 🎙️" rows="1" style="min-height:46px;max-height:130px" oninput="growTextarea(this)" onkeydown="onKeyDown(event)"></textarea>
       <button class="speak-btn" id="speak-btn" onclick="toggleSpeak()">🔊</button>
@@ -473,6 +475,59 @@ function addMessage(role, content, id) {
   scroll.insertBefore(div, thinking);
   document.getElementById("quick-cmds").style.display = "none";
   scrollToBottom();
+}
+
+// ─── STREAMING MESSAGE (live-updating atlas bubble) ────────────────────────
+function addStreamingMessage(id) {
+  const scroll = document.getElementById("msg-scroll");
+  const thinking = document.getElementById("thinking");
+
+  const div = document.createElement("div");
+  div.className = "msg-row atlas msg-enter";
+  div.id = `msg-${id}`;
+  div.innerHTML = `
+    <div class="atlas-mini-avatar">${atlasIconSVG(16)}</div>
+    <div class="msg-bubble-atlas">
+      <div class="stream-media"></div>
+      <div class="stream-text"></div>
+    </div>`;
+
+  scroll.insertBefore(div, thinking);
+  document.getElementById("quick-cmds").style.display = "none";
+  scrollToBottom();
+  return div.querySelector(".stream-text");
+}
+
+// Images (e.g. from a chart tool) arrive out-of-band from the model's own
+// text — appended directly to .stream-media so finalizeStreamingMessage
+// (which only rewrites .stream-text) never touches or wipes them.
+function addStreamingImage(id, dataUri, alt) {
+  const div = document.getElementById(`msg-${id}`);
+  if (!div) return;
+  const media = div.querySelector(".stream-media");
+  const img = document.createElement("img");
+  img.src = dataUri;
+  img.alt = alt || "chart";
+  img.style.cssText = "max-width:100%;border-radius:8px;margin-bottom:8px;display:block";
+  media.appendChild(img);
+  scrollToBottom();
+}
+
+function finalizeStreamingMessage(id, content) {
+  const div = document.getElementById(`msg-${id}`);
+  if (!div) return;
+  div.querySelector(".stream-text").innerHTML = renderContent(content);
+  const replay = document.createElement("div");
+  replay.className = "replay-btn";
+  replay.textContent = "▶ REPLAY";
+  replay.onclick = () => speak(content);
+  div.querySelector(".msg-bubble-atlas").appendChild(replay);
+}
+
+const HUMOUR_SET_PREFIX = "HUMOUR_SET:";
+function looksLikeHumourSetInProgress(text) {
+  if (text.length <= HUMOUR_SET_PREFIX.length) return HUMOUR_SET_PREFIX.startsWith(text);
+  return /^HUMOUR_SET:\d*$/.test(text);
 }
 
 function scrollToBottom() {
@@ -889,6 +944,8 @@ async function sendMessage(overrideText) {
   setStatus("processing");
   scrollToBottom();
 
+  let streamId = null;
+
   try {
     const res = await fetch(`${API_BASE}/api/chat`, {
       method: "POST",
@@ -899,28 +956,81 @@ async function sendMessage(overrideText) {
       })
     });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "request failed");
-    let reply = data.reply || "System disruption, Prathmesh. Please try again.";
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || "request failed");
+    }
 
-    // Handle HUMOUR_SET from AI
-    const setMatch = reply.match(/^HUMOUR_SET:(\d+)/);
+    let bubbleText = null;
+    let fullReply = "";
+    let suppressed = true;
+    let streamError = null;
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, idx).trim();
+        buffer = buffer.slice(idx + 1);
+        if (!line) continue;
+        let evt;
+        try { evt = JSON.parse(line); } catch (e) { continue; }
+
+        if (evt.type === "text") {
+          if (!bubbleText) {
+            document.getElementById("thinking").style.display = "none";
+            streamId = Date.now();
+            bubbleText = addStreamingMessage(streamId);
+          }
+          fullReply += evt.delta;
+          if (suppressed) suppressed = looksLikeHumourSetInProgress(fullReply);
+          if (!suppressed) { bubbleText.textContent = fullReply; scrollToBottom(); }
+        } else if (evt.type === "image") {
+          if (!bubbleText) {
+            document.getElementById("thinking").style.display = "none";
+            streamId = Date.now();
+            bubbleText = addStreamingMessage(streamId);
+          }
+          addStreamingImage(streamId, evt.dataUri, evt.alt);
+        } else if (evt.type === "done") {
+          fullReply = evt.reply;
+        } else if (evt.type === "error") {
+          streamError = evt.error;
+        }
+      }
+    }
+
+    if (streamError) throw new Error(streamError);
+
+    // Handle HUMOUR_SET from AI — never shown raw, since it stayed suppressed the whole stream
+    const setMatch = fullReply.match(/^HUMOUR_SET:(\d+)$/);
     if (setMatch) {
+      if (streamId) document.getElementById(`msg-${streamId}`)?.remove();
       const newLevel = Math.min(10, Math.max(1, parseInt(setMatch[1])));
       humourLevel = newLevel;
       updateHumourUI();
-      reply = `Understood, Prathmesh. Humour calibrated to ${newLevel}/10 — ${HUMOUR_LABELS[newLevel]} mode. ${newLevel>=8?"Brace yourself.":newLevel<=3?"All business from here.":"Finding the sweet spot."}`;
+      fullReply = `Understood, Prathmesh. Humour calibrated to ${newLevel}/10 — ${HUMOUR_LABELS[newLevel]} mode. ${newLevel>=8?"Brace yourself.":newLevel<=3?"All business from here.":"Finding the sweet spot."}`;
+      addMessage("atlas", fullReply, Date.now());
+    } else if (bubbleText) {
+      finalizeStreamingMessage(streamId, fullReply);
+    } else {
+      document.getElementById("thinking").style.display = "none";
+      addMessage("atlas", fullReply, Date.now());
     }
 
-    messages.push({ role: "assistant", content: reply });
+    messages.push({ role: "assistant", content: fullReply });
     saveHistory();
-    document.getElementById("thinking").style.display = "none";
     loading = false;
     setStatus("online");
-    addMessage("atlas", reply, Date.now());
-    if (autoSpeak) speak(reply);
+    if (autoSpeak) speak(fullReply);
 
   } catch(err) {
+    if (streamId) document.getElementById(`msg-${streamId}`)?.remove();
     const reason = err && err.message ? err.message : "unknown error";
     const errMsg = `I've encountered a disruption, Prathmesh: ${reason}`;
     messages.push({ role: "assistant", content: errMsg });
@@ -932,6 +1042,49 @@ async function sendMessage(overrideText) {
     if (autoSpeak) speak(errMsg);
   }
 
+  updateSendBtn();
+}
+
+// ─── DATASET UPLOAD (Prism) ────────────────────────────────────────────────
+async function onDatasetFileChosen(event) {
+  const file = event.target.files[0];
+  event.target.value = ""; // allow re-choosing the same file later
+  if (!file) return;
+
+  addMessage("user", `📊 Uploading ${file.name}...`, Date.now());
+  loading = true;
+  document.getElementById("thinking").style.display = "flex";
+  setStatus("processing");
+  scrollToBottom();
+
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${API_BASE}/api/prism/upload`, { method: "POST", body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload failed");
+
+    document.getElementById("thinking").style.display = "none";
+    loading = false;
+    setStatus("online");
+
+    const warn = data.warnings && data.warnings.length ? `\n\n⚠ ${data.warnings.join(" ")}` : "";
+    const msg = `Loaded **${data.name}** — ${data.rows} rows, ${data.columns.length} columns:\n${data.columns.map(c => `- ${c}`).join("\n")}${warn}\n\nAsk me anything about it — I can query it, profile it, or chart any column.`;
+    messages.push({ role: "user", content: `[Uploaded dataset: ${data.name}]` });
+    messages.push({ role: "assistant", content: msg });
+    saveHistory();
+    addMessage("atlas", msg, Date.now());
+    if (autoSpeak) speak(`Loaded ${data.name}, Prathmesh — ${data.rows} rows, ${data.columns.length} columns. What would you like to know?`);
+  } catch (err) {
+    document.getElementById("thinking").style.display = "none";
+    loading = false;
+    setStatus("online");
+    const errMsg = `I couldn't load that file, Prathmesh: ${err.message || "unknown error"}`;
+    messages.push({ role: "assistant", content: errMsg });
+    saveHistory();
+    addMessage("atlas", errMsg, Date.now());
+    if (autoSpeak) speak(errMsg);
+  }
   updateSendBtn();
 }
 
