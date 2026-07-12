@@ -386,6 +386,28 @@ let recognition = null;
 let micHeld = false;
 let currentAudio = null;
 
+// ─── PERSISTENT HISTORY ───────────────────────────────────────────────────
+const HISTORY_KEY = "atlas_chat_history";
+
+function saveHistory() {
+  try { localStorage.setItem(HISTORY_KEY, JSON.stringify(messages)); } catch (e) { /* storage unavailable — history just won't persist */ }
+}
+
+function loadHistory() {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : null;
+  } catch (e) { return null; }
+}
+
+function clearHistory() {
+  try { localStorage.removeItem(HISTORY_KEY); } catch (e) {}
+  messages = [];
+  document.querySelectorAll("#msg-scroll .msg-row").forEach((el) => el.remove());
+}
+
 const HUMOUR_LABELS = ["","Robot","Stoic","Formal","Reserved","Balanced","Witty","Clever","Banter","Sharp","Roast Mode"];
 const QUICK_CMDS = [
   "Help me ace my data analyst interview",
@@ -570,6 +592,8 @@ function applyHumourSet(level, announce=true) {
   updateHumourUI();
   if (announce) {
     const msg = `Humour calibrated to ${humourLevel}/10 — ${HUMOUR_LABELS[humourLevel]} mode activated, Prathmesh.`;
+    messages.push({ role: "assistant", content: msg });
+    saveHistory();
     addMessage("atlas", msg, Date.now());
     if (autoSpeak) speak(msg);
   }
@@ -828,10 +852,25 @@ async function sendMessage(overrideText) {
   const content = (overrideText || field.value).trim();
   if (!content || loading) return;
 
+  // Check for a "clear history" command locally first
+  if (/^(clear|reset)\s+(the\s+)?(chat|history|conversation)$/i.test(content)) {
+    field.value = ""; growTextarea(field); updateSendBtn();
+    clearHistory();
+    const msg = "Chat history cleared, Prathmesh. Starting fresh.";
+    messages.push({ role: "assistant", content: msg });
+    saveHistory();
+    addMessage("atlas", msg, Date.now());
+    document.getElementById("quick-cmds").style.display = "flex";
+    if (autoSpeak) speak(msg);
+    return;
+  }
+
   // Check humour command locally first
   const humourCmd = checkHumourCommand(content);
   if (humourCmd !== null) {
     addMessage("user", content, Date.now());
+    messages.push({ role: "user", content });
+    saveHistory();
     field.value = ""; growTextarea(field); updateSendBtn();
     applyHumourSet(humourCmd);
     return;
@@ -840,6 +879,7 @@ async function sendMessage(overrideText) {
   // Add user message
   addMessage("user", content, Date.now());
   messages.push({ role: "user", content });
+  saveHistory();
   field.value = ""; growTextarea(field); updateSendBtn();
 
   // Show thinking
@@ -873,6 +913,7 @@ async function sendMessage(overrideText) {
     }
 
     messages.push({ role: "assistant", content: reply });
+    saveHistory();
     document.getElementById("thinking").style.display = "none";
     loading = false;
     setStatus("online");
@@ -883,6 +924,7 @@ async function sendMessage(overrideText) {
     const reason = err && err.message ? err.message : "unknown error";
     const errMsg = `I've encountered a disruption, Prathmesh: ${reason}`;
     messages.push({ role: "assistant", content: errMsg });
+    saveHistory();
     document.getElementById("thinking").style.display = "none";
     loading = false;
     setStatus("online");
@@ -925,8 +967,17 @@ function init() {
   setInterval(reportLocation, 15 * 60 * 1000);
   loadWires();
 
-  const welcome = "Good to see you online, Prathmesh. All systems are operational.\n\nI'm ATLAS — your personal AI. I can assist with code, data analytics, interview prep, career strategy, or anything else you need. What are we working on today?\n\nTip: Tap 🎙️ to speak to me, 🔊 to hear my response.";
+  const saved = loadHistory();
+  if (saved) {
+    messages = saved;
+    messages.forEach((m, i) => addMessage(m.role === "assistant" ? "atlas" : "user", m.content, i));
+    document.getElementById("quick-cmds").style.display = "none";
+    return;
+  }
+
+  const welcome = "Good to see you online, Prathmesh. All systems are operational.\n\nI'm ATLAS — your personal AI. I can assist with code, data analytics, interview prep, career strategy, or anything else you need. What are we working on today?\n\nTip: Tap 🎙️ to speak to me, 🔊 to hear my response.\n\nSay \"clear chat\" anytime to start fresh.";
   messages.push({ role: "assistant", content: welcome });
+  saveHistory();
   addMessage("atlas", welcome, 0);
   document.getElementById("quick-cmds").style.display = "flex";
 }
