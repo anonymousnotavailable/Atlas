@@ -2,9 +2,10 @@ const gmail = require("./gmail");
 const calendar = require("./calendar");
 const webfetch = require("./webfetch");
 const device = require("./device");
+const memory = require("./memory");
 const providers = require("../providers");
 
-const ALL_TOOLS = [...gmail, ...calendar, ...webfetch, ...device.tools];
+const ALL_TOOLS = [...gmail, ...calendar, ...webfetch, ...device.tools, ...memory.tools];
 
 const TOOL_MAP = new Map(ALL_TOOLS.map((t) => [t.toolSchema.name, t]));
 
@@ -32,7 +33,14 @@ function connectorStatus() {
     { id: "google", label: "Gmail + Calendar (Google)", connected: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN) },
     { id: "webFetch", label: "Web lookups", connected: true },
     { id: "deviceLocation", label: "Device location", connected: true },
+    { id: "memory", label: "Memory", connected: true },
   ];
 }
 
-module.exports = { toolSchemas, executeTool, connectorStatus, setDeviceLocation: device.setLocation };
+module.exports = {
+  toolSchemas,
+  executeTool,
+  connectorStatus,
+  setDeviceLocation: device.setLocation,
+  getMemoryFactsText: memory.factsAsText,
+};
