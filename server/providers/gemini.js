@@ -41,10 +41,14 @@ function toGeminiTools(toolSchemas) {
 }
 
 function toGeminiContents(inputMessages) {
-  return inputMessages.map(({ role, content }) => ({
-    role: role === "assistant" ? "model" : "user",
-    parts: [{ text: content }],
-  }));
+  return inputMessages.map(({ role, content, image }) => {
+    const parts = [];
+    if (image && image.data && image.mimeType) {
+      parts.push({ inlineData: { mimeType: image.mimeType, data: image.data } });
+    }
+    parts.push({ text: content });
+    return { role: role === "assistant" ? "model" : "user", parts };
+  });
 }
 
 async function callGemini(contents, systemInstruction, tools) {

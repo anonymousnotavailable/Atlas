@@ -96,8 +96,21 @@ async function callAnthropicStream(conversation, system, toolSchemas) {
   return upstream;
 }
 
+function toAnthropicMessage({ role, content, image }) {
+  if (image && image.data && image.mimeType) {
+    return {
+      role,
+      content: [
+        { type: "image", source: { type: "base64", media_type: image.mimeType, data: image.data } },
+        { type: "text", text: content },
+      ],
+    };
+  }
+  return { role, content };
+}
+
 async function chatStream(inputMessages, system, toolSchemas, executeTool, onDelta) {
-  let conversation = inputMessages.map(({ role, content }) => ({ role, content }));
+  let conversation = inputMessages.map(toAnthropicMessage);
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const upstream = await callAnthropicStream(conversation, system, toolSchemas);
