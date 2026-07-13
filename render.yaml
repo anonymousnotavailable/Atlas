@@ -27,3 +27,5 @@ services:
         sync: false
       - key: GOOGLE_REFRESH_TOKEN
         sync: false
+      - key: PRISM_API_URL
+        sync: false
