@@ -57,6 +57,7 @@ body{
 
 /* ── AMBIENT BACKGROUND ── */
 #parallax-wrap{position:fixed;inset:0;z-index:0;pointer-events:none;transform:translate3d(0,0,0);will-change:transform}
+#parallax-wrap.tab-hidden,#parallax-wrap.tab-hidden *{animation-play-state:paused !important}
 #particle-canvas{position:absolute;inset:0;opacity:0.55}
 .hex-grid{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.05;
   -webkit-mask-image:radial-gradient(ellipse 85% 65% at 50% 25%,#000 35%,transparent 100%);
@@ -104,6 +105,7 @@ body{
   animation:beamRotate 5s linear infinite;
 }
 @keyframes beamRotate{to{--beam-a:360deg}}
+.beam-border:hover::after,.beam-border:focus-within::after{animation-duration:1.3s}
 
 @keyframes scanline{from{transform:translateY(-4px);opacity:0}5%{opacity:1}95%{opacity:1}to{transform:translateY(100vh);opacity:0}}
 .scan-line{position:fixed;top:0;left:0;right:0;height:1.5px;
@@ -191,7 +193,30 @@ body{
 .rail-divider{width:24px;height:1px;background:linear-gradient(90deg,transparent,rgba(0,229,255,0.25),transparent)}
 #hex-readout-wrap{height:180px;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,transparent,#000 20%,#000 80%,transparent);mask-image:linear-gradient(180deg,transparent,#000 20%,#000 80%,transparent)}
 #hex-readout{font-size:8px;letter-spacing:1px;color:rgba(0,229,255,0.35);line-height:1.9;animation:hexScroll 26s linear infinite;text-align:center}
+#hex-readout.fast{animation-duration:9s}
 @keyframes hexScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+
+/* ── POWER CELLS (Gemini usage HUD) ── */
+#power-cells{display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:auto}
+.power-cells-title{font-size:8px;letter-spacing:2px;color:var(--muted);text-transform:uppercase}
+.power-cell-stack{display:flex;flex-direction:column-reverse;gap:2px;width:14px}
+.power-cell-stack.horizontal{flex-direction:row;width:auto;height:14px}
+.power-cell{width:14px;height:6px;border-radius:1px;background:rgba(0,229,255,0.08);border:1px solid rgba(0,229,255,0.16);transition:background 0.3s var(--ease),border-color 0.3s var(--ease),box-shadow 0.3s var(--ease)}
+.power-cell-stack.horizontal .power-cell{width:6px;height:14px}
+.power-cell.filled{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 6px rgba(0,229,255,0.7)}
+.power-cell.filled.amber{background:var(--amber);border-color:var(--amber);box-shadow:0 0 6px rgba(255,179,0,0.7)}
+.power-cell.filled.red{background:var(--red);border-color:var(--red);box-shadow:0 0 6px rgba(255,23,68,0.7)}
+.power-cell.drain-flash{animation:cellFlash 0.5s ease-out}
+@keyframes cellFlash{0%{background:#fff;border-color:#fff;box-shadow:0 0 16px #fff}100%{background:rgba(0,229,255,0.08);border-color:rgba(0,229,255,0.16);box-shadow:none}}
+#power-cells.warn-pulse .power-cell.filled.red,.drawer-power.warn-pulse .power-cell.filled.red{animation:cellWarnPulse 1.6s ease-in-out infinite}
+@keyframes cellWarnPulse{0%,100%{opacity:1}50%{opacity:0.35}}
+
+.power-readout{font-family:var(--font-mono);font-size:8px;letter-spacing:1px;color:rgba(160,220,255,0.7);text-align:center;line-height:1.7}
+.power-readout b{color:var(--cyan);font-weight:600;font-size:9px}
+
+.rpm-gauge{position:relative;width:42px;height:42px}
+.rpm-gauge svg{width:100%;height:100%}
+.rpm-needle{transform-box:view-box;transform-origin:22px 22px;transition:transform 0.4s var(--ease)}
 
 /* ── CORE BAND ── */
 #core-band{flex-shrink:0;display:flex;flex-direction:column;align-items:center;padding:14px 16px 6px;position:relative;z-index:3;transition:padding 0.35s var(--ease)}
@@ -268,6 +293,11 @@ body{
 #core-band.compact .empty-hero{display:none}
 .empty-title{font-family:var(--font-display);font-size:13px;letter-spacing:3px;color:var(--text);text-transform:uppercase;text-shadow:0 0 14px rgba(0,229,255,0.3)}
 .quick-cmds-hero{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:16px}
+.quick-cmds-hero .quick-btn{opacity:0;animation:fadeUp 0.3s var(--ease) forwards}
+.quick-cmds-hero .quick-btn:nth-child(1){animation-delay:0ms}
+.quick-cmds-hero .quick-btn:nth-child(2){animation-delay:60ms}
+.quick-cmds-hero .quick-btn:nth-child(3){animation-delay:120ms}
+.quick-cmds-hero .quick-btn:nth-child(4){animation-delay:180ms}
 
 /* ── HUMOUR PANEL ── */
 #humour-panel{
@@ -314,14 +344,42 @@ body{
 @keyframes beamSweep{from{left:-30%}to{left:110%}}
 
 /* ── MESSAGE STREAM ── */
-#msg-scroll{flex:1;overflow-y:auto;padding:14px 14px 6px;display:flex;flex-direction:column;gap:16px;z-index:1;-webkit-overflow-scrolling:touch;position:relative}
+#msg-scroll{flex:1;overflow-y:auto;padding:14px 14px 6px;display:flex;flex-direction:column;gap:16px;z-index:1;-webkit-overflow-scrolling:touch;position:relative;scrollbar-width:thin;scrollbar-color:rgba(0,229,255,0.4) transparent}
+#thinking-scanline{position:absolute;left:0;right:0;height:2px;top:0;
+  background:linear-gradient(90deg,transparent,rgba(0,229,255,0.85),transparent);
+  opacity:0;pointer-events:none;z-index:2;filter:drop-shadow(0 0 6px rgba(0,229,255,0.6));}
+#thinking-scanline.active{opacity:1;animation:thinkScan 1.6s ease-in-out infinite}
+@keyframes thinkScan{0%{top:0%}100%{top:96%}}
 #msg-scroll::-webkit-scrollbar{width:3px}
 #msg-scroll::-webkit-scrollbar-track{background:transparent}
-#msg-scroll::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.22);border-radius:2px}
+#msg-scroll::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.4);border-radius:2px;box-shadow:0 0 6px rgba(0,229,255,0.55)}
+#systems-drawer{scrollbar-width:thin;scrollbar-color:rgba(0,229,255,0.4) transparent}
+#systems-drawer::-webkit-scrollbar{width:3px}
+#systems-drawer::-webkit-scrollbar-track{background:transparent}
+#systems-drawer::-webkit-scrollbar-thumb{background:rgba(0,229,255,0.4);border-radius:2px;box-shadow:0 0 6px rgba(0,229,255,0.55)}
+::selection{background:#00E5FF;color:#001018}
 .stream-inner{max-width:720px;width:100%;margin:0 auto;display:flex;flex-direction:column;gap:16px}
 
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
 .msg-enter{animation:fadeUp 0.3s var(--ease) forwards}
+
+@keyframes msgWipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0% 0 0)}}
+@keyframes rgbGlitch{
+  0%{filter:none}
+  25%{filter:drop-shadow(-2px 0 rgba(255,23,68,0.75)) drop-shadow(2px 0 rgba(0,229,255,0.75))}
+  55%{filter:drop-shadow(2px 0 rgba(255,23,68,0.55)) drop-shadow(-2px 0 rgba(0,229,255,0.55))}
+  100%{filter:none}
+}
+.msg-materialize{animation:msgWipe 0.32s var(--ease) forwards,rgbGlitch 0.16s linear 0.26s}
+
+@keyframes sendLaunch{0%{transform:translateY(4px)}100%{transform:translateY(0)}}
+.msg-bubble-user.send-launch{animation:sendLaunch 0.25s var(--ease) forwards;position:relative}
+.msg-bubble-user.send-launch::after{
+  content:"";position:absolute;left:50%;bottom:-2px;width:2px;height:0;
+  background:linear-gradient(180deg,var(--cyan),transparent);transform:translateX(-50%);
+  animation:trailStreak 0.35s ease-out forwards;pointer-events:none;
+}
+@keyframes trailStreak{0%{height:0;opacity:1}70%{height:22px;opacity:0.6}100%{height:22px;opacity:0}}
 
 .msg-row{display:flex;gap:10px;align-items:flex-end;position:relative}
 .msg-row.user{justify-content:flex-end}
@@ -341,6 +399,8 @@ body{
 .msg-bubble-atlas::before,.msg-bubble-atlas::after{content:"";position:absolute;width:12px;height:12px;border-color:var(--cyan);border-style:solid;opacity:0.85;pointer-events:none}
 .msg-bubble-atlas::before{top:-1px;left:-1px;border-width:2px 0 0 2px}
 .msg-bubble-atlas::after{bottom:-1px;right:-1px;border-width:0 2px 2px 0}
+.msg-bubble-atlas.msg-materialize::before,.msg-bubble-atlas.msg-materialize::after{width:0;height:0;animation:bracketGrow 0.22s var(--ease) 0.3s forwards}
+@keyframes bracketGrow{to{width:12px;height:12px}}
 .msg-bubble-atlas.err-flash{animation:shakeX 0.4s var(--ease),flashRed 0.7s ease-out}
 .msg-bubble-atlas.success-sweep{background-image:linear-gradient(100deg,transparent 40%,rgba(0,255,200,0.22) 50%,transparent 60%);background-size:300% 100%;animation:mintSweep 1s ease-out}
 @keyframes shakeX{0%,100%{transform:translateX(0)}20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
@@ -494,6 +554,50 @@ body{
 /* ── RIPPLE ── */
 .ripple-fx{position:absolute;border-radius:50%;background:radial-gradient(circle,rgba(0,229,255,0.5),transparent 70%);transform:scale(0);animation:rippleAnim 0.6s ease-out forwards;pointer-events:none}
 @keyframes rippleAnim{to{transform:scale(1.5);opacity:0}}
+
+/* ── DATA STREAMS (far margin decor) ── */
+.data-stream{position:fixed;top:64px;bottom:0;width:16px;z-index:0;pointer-events:none;opacity:0.04;
+  font-family:var(--font-mono);font-size:11px;line-height:1.5;color:var(--cyan);
+  overflow:hidden;white-space:nowrap;text-align:center;display:none}
+@media(min-width:1400px){.data-stream{display:block}}
+#data-stream-left{left:2px}
+#data-stream-right{right:2px}
+.data-stream-inner{animation:dataStreamScroll 22s linear infinite}
+@keyframes dataStreamScroll{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+
+/* ── HOLOGRAPHIC INTERFERENCE FLICKER ── */
+.glitch-flicker{animation:holoInterference 0.1s steps(2,end)}
+@keyframes holoInterference{0%{opacity:0.15;filter:brightness(2.6) saturate(0)}50%{opacity:0.9;filter:brightness(0.5)}100%{opacity:1;filter:none}}
+
+/* ── CUSTOM CURSOR (desktop, fine pointer only) ── */
+#cursor-dot,#cursor-ring{position:fixed;top:0;left:0;pointer-events:none;z-index:9999;border-radius:50%;display:none}
+#cursor-dot{width:4px;height:4px;background:var(--cyan);box-shadow:0 0 6px var(--cyan)}
+#cursor-ring{width:22px;height:22px;border:1px solid rgba(0,229,255,0.5)}
+body.custom-cursor-active{cursor:none}
+body.custom-cursor-active *{cursor:none}
+body.custom-cursor-active #cursor-dot,body.custom-cursor-active #cursor-ring{display:block}
+
+/* ── DE-REZ FLASH (panel open/close "pixel dissolve") ── */
+.derez-fx::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:5;border-radius:inherit;
+  background-image:repeating-linear-gradient(0deg,rgba(0,229,255,0.45) 0 1px,transparent 1px 3px),
+                    repeating-linear-gradient(90deg,rgba(0,229,255,0.45) 0 1px,transparent 1px 3px);
+  background-size:3px 3px;mix-blend-mode:screen;opacity:0;
+}
+.derez-fx.derez-active::before{animation:derezFlash 0.4s steps(5,end)}
+@keyframes derezFlash{0%{opacity:0.85}100%{opacity:0}}
+
+/* ── AMBIENT MODE (idle >30s) ── */
+body.ambient-mode #nebula-layer,body.ambient-mode #holo-decor,body.ambient-mode .hex-grid,body.ambient-mode #tron-grid{opacity:0.3;transition:opacity 1.2s ease}
+body.ambient-mode .holo-ring{animation-duration:220s !important}
+body.ambient-mode .atlas-core.core-idle{filter:drop-shadow(0 0 8px rgba(0,229,255,0.18))}
+body.ambient-mode .core-nucleus{animation-duration:8s !important}
+body.ambient-mode .core-ring-outer{animation-duration:46s !important}
+body.ambient-mode .core-ring-mid{animation-duration:32s !important}
+body.ambient-mode .core-ring-inner{animation-duration:20s !important}
+body.ambient-mode #status-bar,body.ambient-mode #console-bar{opacity:0.88;transition:opacity 1s ease}
+body.wake-flash{animation:wakeFlash 0.3s ease-out}
+@keyframes wakeFlash{0%{filter:brightness(1.3)}100%{filter:brightness(1)}}
 </style>
 </head>
 <body>
@@ -521,6 +625,10 @@ body{
   <rect width="100%" height="100%" fill="url(#hexPattern)"/>
 </svg>
 <div class="scan-line"></div>
+<div class="data-stream" id="data-stream-left"><div class="data-stream-inner"></div></div>
+<div class="data-stream" id="data-stream-right"><div class="data-stream-inner"></div></div>
+<div id="cursor-ring"></div>
+<div id="cursor-dot"></div>
 
 <div id="boot-screen">
   <div id="boot-lines"></div>
@@ -570,6 +678,24 @@ body{
   <!-- RIGHT TELEMETRY RAIL -->
   <div class="telemetry-rail" id="rail-right">
     <div class="rail-stat"><div class="rail-stat-label">Uplink</div><div class="rail-stat-value telemetry-uplink" style="font-size:9px">LIVE</div></div>
+    <div class="rail-divider"></div>
+    <div id="power-cells">
+      <div class="power-cells-title">Power Cells</div>
+      <div class="power-cell-stack"></div>
+      <div class="power-readout">
+        REQ <b class="power-req-today">0</b>/<span class="power-req-budget">250</span><br/>
+        TOK <b class="power-tokens-session">0</b><br/>
+        AVG <b class="power-avg-response">—</b>
+      </div>
+      <div class="rpm-gauge">
+        <svg viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="18" fill="none" stroke="rgba(0,229,255,0.15)" stroke-width="2"/>
+          <path d="M22 22 L22 7" class="rpm-needle" stroke="#00E5FF" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="22" cy="22" r="2" fill="#00E5FF"/>
+        </svg>
+      </div>
+      <div class="power-readout" style="opacity:0.6">RPM <b class="power-rpm">0</b></div>
+    </div>
     <div class="rail-divider"></div>
     <div id="hex-readout-wrap"><div id="hex-readout"></div></div>
   </div>
@@ -631,6 +757,7 @@ body{
 
   <!-- MESSAGES -->
   <div id="msg-scroll">
+    <div id="thinking-scanline"></div>
     <div class="stream-inner" id="stream-inner">
       <div id="quick-cmds"></div>
       <div id="thinking" style="display:none" class="thinking-row msg-enter">
@@ -704,6 +831,17 @@ body{
   <div class="drawer-row">
     <span class="drawer-row-label">UI Sound Design</span>
     <span class="toggle-switch rippleable" id="sound-toggle" onclick="toggleSound()"></span>
+  </div>
+  <div class="drawer-row drawer-power" style="flex-direction:column;align-items:stretch;gap:10px">
+    <span class="drawer-row-label">Power Cells (Gemini)</span>
+    <div style="display:flex;align-items:center;gap:16px">
+      <div class="power-cell-stack horizontal"></div>
+      <div class="power-readout" style="text-align:left">
+        REQ <b class="power-req-today">0</b>/<span class="power-req-budget">250</span> ·
+        TOK <b class="power-tokens-session">0</b><br/>
+        AVG <b class="power-avg-response">—</b> · RPM <b class="power-rpm">0</b>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -846,7 +984,25 @@ function initParticles() {
     return;
   }
 
+  let lastFrameTime = performance.now();
+  let frameSamples = [];
+  let degraded = false;
+
   function tick() {
+    if (document.hidden) { requestAnimationFrame(tick); return; }
+
+    const now = performance.now();
+    frameSamples.push(now - lastFrameTime);
+    lastFrameTime = now;
+    if (!degraded && frameSamples.length >= 60) {
+      const avg = frameSamples.reduce((a, b) => a + b, 0) / frameSamples.length;
+      if (avg > 24) { // sustained under ~42fps — halve the particle count once
+        particles.length = Math.max(10, Math.floor(particles.length / 2));
+        degraded = true;
+      }
+      frameSamples = [];
+    }
+
     ctx.clearRect(0, 0, w, h);
     particles.forEach((p) => {
       p.x += p.vx; p.y += p.vy;
@@ -934,6 +1090,7 @@ function setParallaxTarget(nx, ny) {
   parallaxTY = Math.max(-1, Math.min(1, ny)) * 8;
 }
 function parallaxTick() {
+  if (document.hidden) { requestAnimationFrame(parallaxTick); return; }
   parallaxCX += (parallaxTX - parallaxCX) * 0.06;
   parallaxCY += (parallaxTY - parallaxCY) * 0.06;
   const wrap = document.getElementById("parallax-wrap");
@@ -1089,7 +1246,7 @@ function addMessage(role, content, id, image, opts) {
   if (role === "atlas") {
     div.innerHTML = `
       <div class="atlas-mini-avatar">${atlasIconSVG(16)}</div>
-      <div class="msg-bubble-atlas${opts.error ? " err-flash" : ""}${opts.success ? " success-sweep" : ""}">
+      <div class="msg-bubble-atlas msg-materialize${opts.error ? " err-flash" : ""}${opts.success ? " success-sweep" : ""}">
         <div class="msg-body"></div>
         <div class="msg-actions"></div>
       </div>
@@ -1114,7 +1271,7 @@ function addMessage(role, content, id, image, opts) {
     const imgHtml = image ? `<img src="data:${image.mimeType};base64,${image.data}" style="max-width:220px;border-radius:2px;margin-bottom:6px;display:block;border:1px solid rgba(0,229,255,0.2)"/>` : "";
     div.innerHTML = `
       <div class="msg-timestamp">${formatTime(id)}</div>
-      <div class="msg-bubble-user">${imgHtml}${renderContent(content)}</div>
+      <div class="msg-bubble-user send-launch">${imgHtml}${renderContent(content)}</div>
       <div class="user-avatar">P</div>`;
     streamInner.insertBefore(div, thinking);
   }
@@ -1144,7 +1301,7 @@ function addStreamingMessage(id) {
   attachTimestampHandlers(div);
   div.innerHTML = `
     <div class="atlas-mini-avatar">${atlasIconSVG(16)}</div>
-    <div class="msg-bubble-atlas">
+    <div class="msg-bubble-atlas msg-materialize">
       <div class="stream-media"></div>
       <div class="stream-text msg-body"></div>
       <div class="msg-actions"></div>
@@ -1229,7 +1386,7 @@ function setStatus(state) {
 
 function updateClock() {
   const now = new Date();
-  document.getElementById("clock-time").textContent = now.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false});
+  odometerSet(document.getElementById("clock-time"), now.toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}));
   document.getElementById("clock-date").textContent = now.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
 }
 updateClock();
@@ -1278,6 +1435,225 @@ function initHexReadout() {
   el.innerHTML = html + html;
 }
 
+// ═══════════════════════════════════════════════════════════════════════
+// POWER CELLS — Gemini usage HUD (requests/tokens/response time)
+// ═══════════════════════════════════════════════════════════════════════
+const POWER_CELL_COUNT = 20;
+let powerBudget = 250;
+let powerRequestsToday = 0;
+let powerTokensSession = 0;
+let powerResponseTimes = [];
+let powerRequestTimestamps = [];
+
+// Odometer-style rolling digits — never an instant swap for changed numbers.
+function odometerSet(el, newText) {
+  const oldText = el.textContent || "";
+  if (oldText === newText) return;
+  if (REDUCED_MOTION || oldText.length !== newText.length) {
+    el.textContent = newText;
+    return;
+  }
+  el.innerHTML = "";
+  for (let i = 0; i < newText.length; i++) {
+    const oldCh = oldText[i], newCh = newText[i];
+    if (oldCh === newCh || !/\d/.test(newCh)) {
+      el.appendChild(document.createTextNode(newCh));
+      continue;
+    }
+    const wrap = document.createElement("span");
+    wrap.style.cssText = "display:inline-block;overflow:hidden;height:1em;vertical-align:top;position:relative;width:0.62em";
+    const inner = document.createElement("span");
+    inner.style.cssText = "display:block;transition:transform 0.32s cubic-bezier(0.16,1,0.3,1)";
+    inner.innerHTML = `<span style="display:block;height:1em">${oldCh}</span><span style="display:block;height:1em">${newCh}</span>`;
+    wrap.appendChild(inner);
+    el.appendChild(wrap);
+    requestAnimationFrame(() => { inner.style.transform = "translateY(-1em)"; });
+  }
+}
+
+function setText(sel, text) {
+  document.querySelectorAll(sel).forEach((el) => { odometerSet(el, text); });
+}
+
+function triggerDerez(el) {
+  if (!el || REDUCED_MOTION) return;
+  el.classList.add("derez-fx", "derez-active");
+  setTimeout(() => el.classList.remove("derez-active"), 420);
+}
+
+function initThinkingScanline() {
+  const thinking = document.getElementById("thinking");
+  const scanline = document.getElementById("thinking-scanline");
+  const hex = document.getElementById("hex-readout");
+  if (!thinking) return;
+  const sync = () => {
+    const active = thinking.style.display !== "none" && thinking.style.display !== "";
+    if (scanline) scanline.classList.toggle("active", active);
+    if (hex) hex.classList.toggle("fast", active);
+  };
+  new MutationObserver(sync).observe(thinking, { attributes: true, attributeFilter: ["style"] });
+  sync();
+}
+
+// ─── AMBIENT MODE (idle >30s dims/slows the interface; any input wakes it) ─
+let ambientIdleTimer = null;
+function scheduleAmbientTimer() {
+  clearTimeout(ambientIdleTimer);
+  ambientIdleTimer = setTimeout(() => { document.body.classList.add("ambient-mode"); }, 30000);
+}
+function onUserActivityForAmbient() {
+  const wasAmbient = document.body.classList.contains("ambient-mode");
+  document.body.classList.remove("ambient-mode");
+  if (wasAmbient) {
+    document.body.classList.add("wake-flash");
+    setTimeout(() => document.body.classList.remove("wake-flash"), 300);
+  }
+  scheduleAmbientTimer();
+}
+function initAmbientMode() {
+  if (REDUCED_MOTION) return;
+  ["mousemove", "mousedown", "keydown", "touchstart", "wheel"].forEach((ev) => {
+    window.addEventListener(ev, onUserActivityForAmbient, { passive: true });
+  });
+  scheduleAmbientTimer();
+}
+
+function initPowerCells() {
+  document.querySelectorAll(".power-cell-stack").forEach((stack) => {
+    stack.innerHTML = "";
+    for (let i = 0; i < POWER_CELL_COUNT; i++) {
+      const cell = document.createElement("div");
+      cell.className = "power-cell";
+      stack.appendChild(cell);
+    }
+  });
+}
+
+function renderPowerCells() {
+  const fracRemaining = Math.max(0, Math.min(1, 1 - powerRequestsToday / powerBudget));
+  const filledCount = Math.round(fracRemaining * POWER_CELL_COUNT);
+  const tier = fracRemaining > 0.5 ? "cyan" : fracRemaining > 0.2 ? "amber" : "red";
+
+  document.querySelectorAll(".power-cell-stack").forEach((stack) => {
+    stack.querySelectorAll(".power-cell").forEach((cell, i) => {
+      const shouldFill = i < filledCount;
+      cell.classList.toggle("filled", shouldFill);
+      cell.classList.remove("amber", "red");
+      if (shouldFill && tier !== "cyan") cell.classList.add(tier);
+    });
+  });
+  document.getElementById("power-cells")?.classList.toggle("warn-pulse", tier === "red");
+  document.querySelector(".drawer-power")?.classList.toggle("warn-pulse", tier === "red");
+
+  setText(".power-req-today", String(powerRequestsToday));
+  setText(".power-req-budget", String(powerBudget));
+  setText(".power-tokens-session", powerTokensSession.toLocaleString());
+  const avg = powerResponseTimes.length
+    ? (powerResponseTimes.reduce((a, b) => a + b, 0) / powerResponseTimes.length).toFixed(1) + "s"
+    : "—";
+  setText(".power-avg-response", avg);
+  updateRpmGauge();
+}
+
+function flashDrainedCell() {
+  document.querySelectorAll(".power-cell-stack").forEach((stack) => {
+    const cells = Array.from(stack.querySelectorAll(".power-cell"));
+    const filledCount = cells.filter((c) => c.classList.contains("filled")).length;
+    const justDrained = cells[filledCount];
+    if (justDrained) {
+      justDrained.classList.add("drain-flash");
+      setTimeout(() => justDrained.classList.remove("drain-flash"), 500);
+    }
+  });
+}
+
+function updateRpmGauge() {
+  const now = Date.now();
+  powerRequestTimestamps = powerRequestTimestamps.filter((t) => now - t < 60000);
+  const rpm = powerRequestTimestamps.length;
+  setText(".power-rpm", String(rpm));
+  const angle = -120 + Math.min(1, rpm / 12) * 240;
+  document.querySelectorAll(".rpm-needle").forEach((n) => { n.style.transform = `rotate(${angle}deg)`; });
+}
+
+function handleUsageEvent(usage, today) {
+  powerRequestsToday = today.requestsToday;
+  powerBudget = today.dailyBudget;
+  powerTokensSession += usage.totalTokenCount || 0;
+  powerRequestTimestamps.push(Date.now());
+  renderPowerCells();
+  flashDrainedCell();
+}
+
+async function hydratePowerCells() {
+  try {
+    const res = await fetch(`${API_BASE}/api/usage`);
+    if (!res.ok) return;
+    const data = await res.json();
+    powerRequestsToday = data.requestsToday;
+    powerBudget = data.dailyBudget;
+    renderPowerCells();
+  } catch (e) { /* usage endpoint unavailable — HUD stays at defaults */ }
+}
+
+// ─── TAB VISIBILITY (pause L0-L2 CSS animation while backgrounded) ─────────
+function initVisibilityPause() {
+  document.addEventListener("visibilitychange", () => {
+    document.getElementById("parallax-wrap")?.classList.toggle("tab-hidden", document.hidden);
+  });
+}
+
+// ─── DATA STREAMS (far-margin scrolling katakana/hex decor) ───────────────
+const KATAKANA_HEX_CHARS = "アイウエオカキクケコサシスセソタチツテト0123456789ABCDEF";
+function initDataStreams() {
+  ["data-stream-left", "data-stream-right"].forEach((id) => {
+    const inner = document.querySelector(`#${id} .data-stream-inner`);
+    if (!inner) return;
+    const lines = Array.from({ length: 40 }, () =>
+      KATAKANA_HEX_CHARS[Math.floor(Math.random() * KATAKANA_HEX_CHARS.length)]
+    ).join("<br/>");
+    inner.innerHTML = lines + "<br/>" + lines;
+  });
+}
+
+// ─── RANDOM HOLOGRAPHIC INTERFERENCE FLICKER ───────────────────────────────
+function scheduleGlitchFlicker() {
+  if (REDUCED_MOTION) return;
+  const delay = 45000 + Math.random() * 45000;
+  setTimeout(() => {
+    const targets = ["nebula-layer", "holo-decor", "tron-grid"];
+    const el = document.getElementById(targets[Math.floor(Math.random() * targets.length)]);
+    if (el && document.visibilityState === "visible") {
+      el.classList.add("glitch-flicker");
+      setTimeout(() => el.classList.remove("glitch-flicker"), 100);
+    }
+    scheduleGlitchFlicker();
+  }, delay);
+}
+
+// ─── CUSTOM CURSOR (crosshair dot + 100ms-lagged trailing ring) ───────────
+function initCustomCursor() {
+  if (REDUCED_MOTION) return;
+  if (!window.matchMedia || !window.matchMedia("(hover:hover) and (pointer:fine)").matches) return;
+  const dot = document.getElementById("cursor-dot");
+  const ring = document.getElementById("cursor-ring");
+  if (!dot || !ring) return;
+  document.body.classList.add("custom-cursor-active");
+  let mx = window.innerWidth / 2, my = window.innerHeight / 2, rx = mx, ry = my;
+  window.addEventListener("mousemove", (e) => {
+    mx = e.clientX; my = e.clientY;
+    dot.style.transform = `translate(${mx}px,${my}px) translate(-50%,-50%)`;
+  });
+  function tick() {
+    if (document.hidden) { requestAnimationFrame(tick); return; }
+    rx += (mx - rx) * 0.35;
+    ry += (my - ry) * 0.35;
+    ring.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
 async function loadStatusTelemetry() {
   const t0 = performance.now();
   try {
@@ -1310,6 +1686,7 @@ function toggleSystemsDrawer(force) {
   const open = force !== undefined ? force : !drawer.classList.contains("open");
   drawer.classList.toggle("open", open);
   backdrop.classList.toggle("open", open);
+  triggerDerez(drawer);
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1343,6 +1720,7 @@ function toggleHumour() {
   const p = document.getElementById("humour-panel");
   p.classList.toggle("open");
   updateHumourUI();
+  triggerDerez(p);
 }
 
 function closeHumour() {
@@ -1846,6 +2224,7 @@ async function sendMessage(overrideText) {
 
   let streamId = null;
   const lastUserText = displayContent;
+  const requestStart = performance.now();
 
   try {
     const res = await fetch(`${API_BASE}/api/chat`, {
@@ -1899,6 +2278,8 @@ async function sendMessage(overrideText) {
             bubbleText = addStreamingMessage(streamId);
           }
           addStreamingImage(streamId, evt.dataUri, evt.alt);
+        } else if (evt.type === "usage") {
+          handleUsageEvent(evt.usage, evt.today);
         } else if (evt.type === "done") {
           fullReply = evt.reply;
         } else if (evt.type === "error") {
@@ -1908,6 +2289,11 @@ async function sendMessage(overrideText) {
     }
 
     if (streamError) throw new Error(streamError);
+
+    const elapsedSec = (performance.now() - requestStart) / 1000;
+    powerResponseTimes.push(elapsedSec);
+    if (powerResponseTimes.length > 20) powerResponseTimes.shift();
+    renderPowerCells();
 
     const setMatch = fullReply.match(/^HUMOUR_SET:(\d+)$/);
     if (setMatch) {
@@ -2085,6 +2471,14 @@ function init() {
   initParallax();
   updateCoreTelemetry();
   initHexReadout();
+  initPowerCells();
+  hydratePowerCells();
+  initThinkingScanline();
+  initAmbientMode();
+  initDataStreams();
+  scheduleGlitchFlicker();
+  initCustomCursor();
+  initVisibilityPause();
   initScrollWatcher();
   updateHumourUI();
   updateSoundToggleUI();

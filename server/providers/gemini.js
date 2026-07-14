@@ -73,7 +73,7 @@ async function callGemini(contents, systemInstruction, tools) {
 }
 
 async function chat(inputMessages, system, toolSchemas, executeTool) {
-  return chatStream(inputMessages, system, toolSchemas, executeTool, null);
+  return chatStream(inputMessages, system, toolSchemas, executeTool, null, null);
 }
 
 // Parses a fetch Response body in Gemini's SSE stream format. Line-based
@@ -134,7 +134,7 @@ async function callGeminiStream(contents, systemInstruction, tools) {
 // sends a function call as one complete part, not incremental deltas — so
 // those turns execute the tool and loop silently before the next turn
 // (which does stream) begins.
-async function chatStream(inputMessages, system, toolSchemas, executeTool, onDelta) {
+async function chatStream(inputMessages, system, toolSchemas, executeTool, onDelta, onUsage) {
   let contents = toGeminiContents(inputMessages);
   const tools = toGeminiTools(toolSchemas);
 
@@ -143,6 +143,7 @@ async function chatStream(inputMessages, system, toolSchemas, executeTool, onDel
 
     let fullText = "";
     const functionCalls = [];
+    let usageMetadata = null;
 
     for await (const event of sseEvents(upstream)) {
       const parts = event.candidates?.[0]?.content?.parts || [];
@@ -154,7 +155,10 @@ async function chatStream(inputMessages, system, toolSchemas, executeTool, onDel
           functionCalls.push(part.functionCall);
         }
       }
+      if (event.usageMetadata) usageMetadata = event.usageMetadata;
     }
+
+    if (onUsage && usageMetadata) onUsage(usageMetadata);
 
     if (functionCalls.length === 0) {
       return fullText || "System disruption, Prathmesh. Please try again.";

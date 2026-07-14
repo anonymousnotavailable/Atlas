@@ -37,7 +37,7 @@ function textFromContent(content) {
 }
 
 async function chat(inputMessages, system, toolSchemas, executeTool) {
-  return chatStream(inputMessages, system, toolSchemas, executeTool, null);
+  return chatStream(inputMessages, system, toolSchemas, executeTool, null, null);
 }
 
 // Line-based rather than blank-line-block-based — see the matching comment
@@ -109,7 +109,7 @@ function toAnthropicMessage({ role, content, image }) {
   return { role, content };
 }
 
-async function chatStream(inputMessages, system, toolSchemas, executeTool, onDelta) {
+async function chatStream(inputMessages, system, toolSchemas, executeTool, onDelta, onUsage) {
   let conversation = inputMessages.map(toAnthropicMessage);
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {

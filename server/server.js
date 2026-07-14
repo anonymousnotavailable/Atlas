@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const connectors = require("./connectors");
 const providers = require("./providers");
+const usageTracker = require("./lib/usageTracker");
 
 const PORT = process.env.PORT || 8787;
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -86,6 +87,10 @@ app.get("/api/status", (req, res) => {
   res.json({ connectors: connectors.connectorStatus() });
 });
 
+app.get("/api/usage", (req, res) => {
+  res.json(usageTracker.getUsage());
+});
+
 app.post("/api/chat", async (req, res) => {
   const provider = providers.selectProvider();
   if (!provider.isConfigured()) {
@@ -110,12 +115,17 @@ app.post("/api/chat", async (req, res) => {
   try {
     const emit = (type, payload) => res.write(JSON.stringify({ type, ...payload }) + "\n");
     const boundExecuteTool = (name, input) => connectors.executeTool(name, input, emit);
+    const onUsage = (usage) => {
+      usageTracker.recordRequest(usage);
+      emit("usage", { usage, today: usageTracker.getUsage() });
+    };
     const reply = await provider.chatStream(
       messages,
       buildSystemPrompt(level),
       connectors.toolSchemas(),
       boundExecuteTool,
-      (delta) => emit("text", { delta })
+      (delta) => emit("text", { delta }),
+      onUsage
     );
     res.write(JSON.stringify({ type: "done", reply }) + "\n");
   } catch (err) {
