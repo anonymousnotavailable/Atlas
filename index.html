@@ -50,6 +50,14 @@
 .theme-swatch.active::after{content:"OK";position:absolute;top:3px;right:5px;font-size:8px;color:var(--cyan)}
 .theme-swatch-dot{width:22px;height:22px;border-radius:50%;box-shadow:0 0 10px currentColor}
 .theme-swatch-label{font-size:9px;letter-spacing:1px;font-family:var(--font-mono);color:rgba(var(--accent-text-rgb),0.8);text-transform:uppercase;text-align:center}
+/* ATLAS AVATAR */
+#avatar-dock{position:fixed;right:18px;bottom:18px;z-index:90;width:84px;height:84px;pointer-events:none}
+#avatar-canvas{position:absolute;inset:0;width:100%;height:100%;opacity:0;transition:opacity 0.5s ease}
+#avatar-canvas.ready{opacity:1}
+.avatar-fallback{position:absolute;inset:0;border-radius:50%;pointer-events:none;background:radial-gradient(circle at 40% 35%,rgba(var(--cyan-rgb),0.55),rgba(var(--mint-rgb),0.15) 55%,transparent 75%);border:1px solid rgba(var(--cyan-rgb),0.35);box-shadow:0 0 24px rgba(var(--cyan-rgb),0.3);animation:avatarFallbackBreathe 4s ease-in-out infinite}
+@keyframes avatarFallbackBreathe{0%,100%{transform:scale(0.92);opacity:0.75}50%{transform:scale(1.04);opacity:1}}
+#avatar-dock.talking .avatar-fallback{animation-duration:0.6s}
+@media (max-width:640px){#avatar-dock{width:60px;height:60px;right:12px;bottom:12px}}
 @property --beam-a{syntax:'<angle>';inherits:false;initial-value:0deg}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;overflow:hidden;background:var(--bg)}
@@ -2590,6 +2598,155 @@ if ("serviceWorker" in navigator) {
 
 runBoot();
 init();
+</script>
+<!-- ATLAS AVATAR -->
+<div id="avatar-dock" aria-hidden="true">
+  <div class="avatar-fallback"></div>
+  <canvas id="avatar-canvas"></canvas>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function initAvatar(){
+  var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var SMALL = window.innerWidth < 640;
+  var dock = document.getElementById("avatar-dock");
+  if (REDUCED || SMALL || typeof THREE === "undefined") return;
+
+  var canvas = document.getElementById("avatar-canvas");
+  var fallback = dock.querySelector(".avatar-fallback");
+  var size = 84;
+
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(38, 1, 0.1, 20);
+  camera.position.z = 3.4;
+  var renderer = new THREE.WebGLRenderer({ canvas: canvas, alpha: true, antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setSize(size, size);
+
+  var group = new THREE.Group();
+  scene.add(group);
+
+  var coreGeo = new THREE.IcosahedronGeometry(0.85, 1);
+  var edges = new THREE.EdgesGeometry(coreGeo);
+  var coreMat = new THREE.LineBasicMaterial({ color: 0x00e5ff, transparent: true, opacity: 0.75 });
+  var core = new THREE.LineSegments(edges, coreMat);
+  group.add(core);
+
+  var innerGeo = new THREE.SphereGeometry(0.62, 24, 24);
+  var innerMat = new THREE.MeshBasicMaterial({ color: 0x00ffc8, transparent: true, opacity: 0.14 });
+  var innerGlow = new THREE.Mesh(innerGeo, innerMat);
+  group.add(innerGlow);
+
+  var eyeGeo = new THREE.SphereGeometry(0.055, 10, 10);
+  var eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  var eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-0.18, 0.08, 0.62);
+  var eyeR = new THREE.Mesh(eyeGeo, eyeMat); eyeR.position.set(0.18, 0.08, 0.62);
+  group.add(eyeL, eyeR);
+  var eyeHome = { lx: eyeL.position.x, ly: eyeL.position.y, rx: eyeR.position.x, ry: eyeR.position.y };
+
+  var ringGeo = new THREE.TorusGeometry(1.05, 0.008, 6, 60);
+  var ringMat = new THREE.MeshBasicMaterial({ color: 0x2979ff, transparent: true, opacity: 0.35 });
+  var ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2.4;
+  group.add(ring);
+
+  var mouseX = 0, mouseY = 0, tX = 0, tY = 0;
+  window.addEventListener("mousemove", function(e){
+    mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+    mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+  }, { passive: true });
+
+  var state = "idle";
+  var pulseUntil = 0, nodUntil = 0, waveUntil = 0;
+
+  function react(kind){
+    var now = performance.now();
+    if (kind === "pulse") pulseUntil = now + 600;
+    if (kind === "nod") nodUntil = now + 700;
+    if (kind === "wave") waveUntil = now + 900;
+  }
+  window.atlasAvatarReact = react;
+
+  var coreEl = document.getElementById("atlas-core");
+  if (coreEl) {
+    var lastClass = coreEl.className;
+    new MutationObserver(function(){
+      if (coreEl.className === lastClass) return;
+      lastClass = coreEl.className;
+      if (lastClass.indexOf("core-speaking") !== -1) state = "speaking";
+      else if (lastClass.indexOf("core-thinking") !== -1) { state = "thinking"; react("nod"); }
+      else if (lastClass.indexOf("core-listening") !== -1) state = "listening";
+      else if (lastClass.indexOf("core-error") !== -1) { state = "error"; react("wave"); }
+      else { if (state === "thinking") react("pulse"); state = "idle"; }
+    }).observe(coreEl, { attributes: true, attributeFilter: ["class"] });
+  }
+
+  var running = true;
+  document.addEventListener("visibilitychange", function(){ running = !document.hidden; });
+
+  var lastFrame = performance.now(), samples = [], degraded = false;
+
+  var clock = new THREE.Clock();
+  function animate(){
+    requestAnimationFrame(animate);
+    if (!running) return;
+    var now = performance.now();
+    samples.push(now - lastFrame); lastFrame = now;
+    if (!degraded && samples.length >= 90) {
+      var avg = samples.reduce(function(a,b){return a+b;},0) / samples.length;
+      if (avg > 28) { renderer.setPixelRatio(1); degraded = true; }
+      samples = [];
+    }
+
+    var t = clock.getElapsedTime();
+    tX += (mouseX - tX) * 0.06;
+    tY += (mouseY - tY) * 0.06;
+
+    group.rotation.y = Math.sin(t * 0.3) * 0.15 + tX * 0.25;
+    group.rotation.x = tY * 0.15;
+    core.rotation.y += 0.003;
+    ring.rotation.z += 0.0025;
+
+    var breathe = 1 + Math.sin(t * 1.6) * 0.05;
+    group.scale.setScalar(breathe);
+
+    eyeL.position.x = eyeHome.lx + tX * 0.05;
+    eyeL.position.y = eyeHome.ly + tY * 0.04;
+    eyeR.position.x = eyeHome.rx + tX * 0.05;
+    eyeR.position.y = eyeHome.ry + tY * 0.04;
+
+    if (state === "speaking") {
+      var talk = 1 + Math.abs(Math.sin(t * 9)) * 0.12;
+      innerGlow.scale.setScalar(talk);
+      innerMat.opacity = 0.12 + Math.abs(Math.sin(t * 9)) * 0.14;
+      dock.classList.add("talking");
+    } else {
+      innerGlow.scale.setScalar(1);
+      innerMat.opacity = 0.14;
+      dock.classList.remove("talking");
+    }
+
+    if (now < pulseUntil) {
+      var p = 1 + Math.sin((pulseUntil - now) * 0.05) * 0.18;
+      group.scale.multiplyScalar(p);
+    }
+    if (now < nodUntil) {
+      group.rotation.x += Math.sin((nodUntil - now) * 0.05) * 0.25;
+    }
+    if (now < waveUntil) {
+      group.rotation.z = Math.sin((waveUntil - now) * 0.04) * 0.2;
+    } else {
+      group.rotation.z *= 0.9;
+    }
+
+    renderer.render(scene, camera);
+  }
+  animate();
+
+  canvas.classList.add("ready");
+  if (fallback) fallback.style.display = "none";
+})();
 </script>
 </body>
 </html>
