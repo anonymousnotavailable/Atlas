@@ -2635,7 +2635,7 @@ init();
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var SMALL = window.innerWidth < 640;
   var dock = document.getElementById("avatar-dock");
-  if (REDUCED || SMALL || typeof THREE === "undefined") return;
+  if (SMALL || typeof THREE === "undefined") return;
 
   var canvas = document.getElementById("avatar-canvas");
   var fallback = dock.querySelector(".avatar-fallback");
