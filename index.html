@@ -2793,7 +2793,7 @@ init();
           if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
           if (child.material) {
             child.material.emissive = new THREE.Color(0x00e5ff);
-            child.material.emissiveIntensity = 0.06;
+                          child.material.emissiveIntensity = 0.18;
           }
         }
       });
@@ -2812,7 +2812,7 @@ init();
       if (ctx.eyeL) ctx.eyeL.visible = false;
       if (ctx.eyeR) ctx.eyeR.visible = false;
 
-      ctx.group.add(model);
+      ctx.scene.add(new THREE.AmbientLight(0x88ccff, 1.8)); var key = new THREE.DirectionalLight(0x00e5ff, 1.4); key.position.set(1, 1.5, 2); ctx.scene.add(key); var rim = new THREE.PointLight(0x2979ff, 1, 6); rim.position.set(-1.5, -0.5, 1.5); ctx.scene.add(rim); ctx.group.add(model);
     }, undefined, function(err){
       console.warn("Atlas avatar: falling back to procedural core", err);
     });
