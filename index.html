@@ -2765,8 +2765,58 @@ init();
   }
   animate();
 
+      window.atlasAvatarInternals = { THREE: THREE, scene: scene, group: group, core: core, innerGlow: innerGlow, eyeL: eyeL, eyeR: eyeR, ring: ring, camera: camera, renderer: renderer };
+
   canvas.classList.add("ready");
   if (fallback) fallback.style.display = "none";
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script>
+/* ATLAS ARC REACTOR MODEL (GLTFLoader upgrade for HUD avatar) */
+(function(){
+  function boot(){
+    var ctx = window.atlasAvatarInternals;
+    if (!ctx || typeof THREE === "undefined" || typeof THREE.GLTFLoader === "undefined") return;
+    if (window.innerWidth < 1024) return;
+    if (navigator.connection && navigator.connection.saveData) return;
+
+    var loader = new THREE.GLTFLoader();
+    loader.load("atlas-arc-reactor.glb", function(gltf){
+      var model = gltf.scene;
+
+      model.traverse(function(child){
+        if (child.isMesh) {
+          if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
+          if (child.material) {
+            child.material.emissive = new THREE.Color(0x00e5ff);
+            child.material.emissiveIntensity = 0.06;
+          }
+        }
+      });
+
+      var box = new THREE.Box3().setFromObject(model);
+      var sizeVec = new THREE.Vector3();
+      box.getSize(sizeVec);
+      var center = new THREE.Vector3();
+      box.getCenter(center);
+      model.position.sub(center);
+      var maxDim = Math.max(sizeVec.x, sizeVec.y, sizeVec.z) || 1;
+      var scale = 1.5 / maxDim;
+      model.scale.setScalar(scale);
+
+      if (ctx.core) ctx.core.visible = false;
+      if (ctx.eyeL) ctx.eyeL.visible = false;
+      if (ctx.eyeR) ctx.eyeR.visible = false;
+
+      ctx.group.add(model);
+    }, undefined, function(err){
+      console.warn("Atlas avatar: falling back to procedural core", err);
+    });
+  }
+
+  if (document.readyState === "complete") boot();
+  else window.addEventListener("load", boot);
 })();
 </script>
 <script>
