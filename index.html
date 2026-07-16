@@ -2,11 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="theme-color" content="#030711"/>
+<meta name="referrer" content="strict-origin-when-cross-origin"/>
+<meta http-equiv="Permissions-Policy" content="camera=(), microphone=(self), geolocation=()"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://fonts.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://generativelanguage.googleapis.com https://api.openai.com; media-src 'self' blob:; worker-src 'self' blob:"/>
 <title>ATLAS — Personal AI</title>
 <link rel="manifest" href="/manifest.json"/>
 <link rel="icon" href="/icon.svg" type="image/svg+xml"/>
@@ -646,6 +649,34 @@ body.ambient-mode .core-ring-inner{animation-duration:20s !important}
 body.ambient-mode #status-bar,body.ambient-mode #console-bar{opacity:0.88;transition:opacity 1s ease}
 body.wake-flash{animation:wakeFlash 0.3s ease-out}
 @keyframes wakeFlash{0%{filter:brightness(1.3)}100%{filter:brightness(1)}}
+
+#arc-reactor-bg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.12;transition:opacity 1.5s ease}
+#arc-reactor-bg.active{opacity:0.18}
+#arc-reactor-bg canvas{width:100%;height:100%}
+.holo-scanline{position:fixed;inset:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(var(--cyan-rgb),0.015) 2px,rgba(var(--cyan-rgb),0.015) 4px);animation:holoScan 8s linear infinite}
+@keyframes holoScan{0%{background-position:0 0}100%{background-position:0 100vh}}
+@keyframes dimensionalPulse{0%,100%{filter:brightness(1) hue-rotate(0deg);transform:perspective(1200px) rotateX(0deg)}25%{filter:brightness(1.06) hue-rotate(2deg);transform:perspective(1200px) rotateX(0.3deg)}50%{filter:brightness(1.02) hue-rotate(-1deg);transform:perspective(1200px) rotateX(-0.2deg)}75%{filter:brightness(1.04) hue-rotate(1deg);transform:perspective(1200px) rotateX(0.15deg)}}
+#app{animation:dimensionalPulse 12s ease-in-out infinite;transform-style:preserve-3d}
+@keyframes gridPulse{0%,100%{opacity:0.03}50%{opacity:0.07}}
+.quantum-grid{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(var(--cyan-rgb),0.04) 1px,transparent 1px),linear-gradient(90deg,rgba(var(--cyan-rgb),0.04) 1px,transparent 1px);background-size:60px 60px;animation:gridPulse 6s ease-in-out infinite}
+@keyframes particleDrift{0%{transform:translateY(100vh) scale(0);opacity:0}10%{opacity:1}90%{opacity:1}100%{transform:translateY(-10vh) scale(1);opacity:0}}
+.particle{position:fixed;width:2px;height:2px;background:var(--cyan);border-radius:50%;pointer-events:none;z-index:1;box-shadow:0 0 6px rgba(var(--cyan-rgb),0.6);animation:particleDrift var(--dur) linear infinite;left:var(--x);animation-delay:var(--delay)}
+.msg-row{transform-style:preserve-3d;transition:transform 0.4s var(--ease),opacity 0.4s ease}
+.msg-row:hover{transform:perspective(800px) translateZ(8px) scale(1.008)}
+@keyframes glitchFlicker{0%,93%,100%{opacity:1;transform:none}94%{opacity:0.8;transform:translate(-2px,1px)}96%{opacity:0.9;transform:translate(1px,-1px)}98%{opacity:0.85;transform:translate(-1px,0)}}
+.wordmark{animation:glitchFlicker 8s ease-in-out infinite}
+@keyframes borderGlow{0%,100%{border-color:rgba(var(--cyan-rgb),0.15);box-shadow:inset 0 0 20px rgba(var(--cyan-rgb),0.03)}50%{border-color:rgba(var(--cyan-rgb),0.35);box-shadow:inset 0 0 30px rgba(var(--cyan-rgb),0.06)}}
+#msg-scroll{animation:borderGlow 5s ease-in-out infinite}
+@keyframes energyWave{0%{transform:scale(0.5);opacity:0.7}100%{transform:scale(3);opacity:0}}
+.energy-wave{position:absolute;width:40px;height:40px;border-radius:50%;border:2px solid var(--cyan);pointer-events:none;animation:energyWave 0.6s ease-out forwards}
+@keyframes coreBreathe4D{0%,100%{box-shadow:0 0 30px rgba(var(--cyan-rgb),0.4),0 0 60px rgba(var(--cyan-rgb),0.2),0 0 100px rgba(var(--cyan-rgb),0.1);transform:scale(1) rotateY(0deg)}25%{box-shadow:0 0 40px rgba(var(--cyan-rgb),0.5),0 0 80px rgba(var(--cyan-rgb),0.25),0 0 120px rgba(var(--cyan-rgb),0.12);transform:scale(1.03) rotateY(2deg)}50%{box-shadow:0 0 50px rgba(var(--cyan-rgb),0.6),0 0 100px rgba(var(--cyan-rgb),0.3),0 0 140px rgba(var(--cyan-rgb),0.15);transform:scale(1.06) rotateY(0deg)}75%{box-shadow:0 0 35px rgba(var(--cyan-rgb),0.45),0 0 70px rgba(var(--cyan-rgb),0.22),0 0 110px rgba(var(--cyan-rgb),0.1);transform:scale(1.02) rotateY(-2deg)}}
+.atlas-core{animation:coreBreathe4D 4s ease-in-out infinite!important;transform-style:preserve-3d}
+*:focus-visible{outline:2px solid var(--cyan);outline-offset:2px;border-radius:2px}
+button:focus-visible,input:focus-visible,textarea:focus-visible{box-shadow:0 0 0 3px rgba(var(--cyan-rgb),0.3)}
+.skip-link{position:absolute;top:-100%;left:50%;transform:translateX(-50%);padding:8px 16px;background:var(--bg);color:var(--cyan);border:1px solid var(--cyan);z-index:9999;font-family:var(--font-mono);font-size:12px;text-decoration:none;border-radius:4px;transition:top 0.2s ease}
+.skip-link:focus{top:8px}
+@media(prefers-reduced-motion:reduce){.holo-scanline,.quantum-grid,.particle{display:none!important}#app{animation:none!important}.msg-row:hover{transform:none!important}.wordmark{animation:none!important}.atlas-core{animation:avatarFallbackBreathe 4s ease-in-out infinite!important}#arc-reactor-bg{display:none!important}#msg-scroll{animation:none!important}}
+
 </style>
 </head>
 <body>
@@ -686,6 +717,11 @@ body.wake-flash{animation:wakeFlash 0.3s ease-out}
 <div id="toast"></div>
 <div id="systems-backdrop" onclick="toggleSystemsDrawer(false)"></div>
 
+<div id="arc-reactor-bg" aria-hidden="true"></div>
+<div class="quantum-grid" aria-hidden="true"></div>
+<div class="holo-scanline" aria-hidden="true"></div>
+<div id="particle-field" aria-hidden="true"></div>
+<a href="#msg-scroll" class="skip-link">Skip to chat</a>
 <div id="app">
 
   <!-- STATUS BAR -->
@@ -707,7 +743,7 @@ body.wake-flash{animation:wakeFlash 0.3s ease-out}
       <div class="hud-chip" id="ping-chip">PING —</div>
       <div class="hud-chip" id="uptime-chip">UP 00:00:00</div>
       <div class="action-chip rippleable" id="convo-chip" onclick="toggleConversationMode()">🎧 CONVO</div>
-      <a class="action-chip rippleable" id="wires-chip" href="/wires.html" target="_blank" rel="noopener">🔌 WIRES</a>
+      <a class="action-chip rippleable" id="wires-chip" href="/wires.html" target="_blank" rel="noopener noreferrer">🔌 WIRES</a>
       <div class="action-chip rippleable" id="humour-chip" onclick="toggleHumour()"></div>
       <div class="action-chip rippleable" id="theme-chip" onclick="toggleThemePanel()" aria-label="Open theme selector" title="Theme">🎨 THEME</div>
       <div class="action-chip rippleable" id="systems-chip" onclick="toggleSystemsDrawer()">☰ SYS</div>
@@ -1193,6 +1229,11 @@ document.querySelector("#thinking .atlas-mini-avatar").innerHTML = atlasIconSVG(
 // ═══════════════════════════════════════════════════════════════════════
 // RENDER — markdown-ish content + fenced code blocks
 // ═══════════════════════════════════════════════════════════════════════
+function sanitizeHTML(str) {
+  var temp = document.createElement("div");
+  temp.textContent = str;
+  return temp.innerHTML;
+}
 function escapeHtml(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
 
 function renderTextLines(text) {
@@ -2812,7 +2853,7 @@ init();
       if (ctx.eyeL) ctx.eyeL.visible = false;
       if (ctx.eyeR) ctx.eyeR.visible = false;
 
-      ctx.scene.add(new THREE.AmbientLight(0x88ccff, 1.8)); var key = new THREE.DirectionalLight(0x00e5ff, 1.4); key.position.set(1, 1.5, 2); ctx.scene.add(key); var rim = new THREE.PointLight(0x2979ff, 1, 6); rim.position.set(-1.5, -0.5, 1.5); ctx.scene.add(rim); ctx.group.add(model);
+      ctx.scene.add(new THREE.AmbientLight(0x88ccff, 0.45)); var key = new THREE.DirectionalLight(0x00e5ff, 0.7); key.position.set(1, 1.5, 2); ctx.scene.add(key); var rim = new THREE.PointLight(0x2979ff, 0.5, 6); rim.position.set(-1.5, -0.5, 1.5); ctx.scene.add(rim); ctx.group.add(model);
     }, undefined, function(err){
       console.warn("Atlas avatar: falling back to procedural core", err);
     });
@@ -3036,6 +3077,80 @@ init();
       el.style.transform = 'perspective(700px) rotateX(0deg) rotateY(0deg)';
     });
   });
+})();
+
+(function initArcReactorBackground(){
+if(window.innerWidth<768||REDUCED_MOTION)return;
+if(navigator.connection&&navigator.connection.saveData)return;
+var container=document.getElementById("arc-reactor-bg");
+if(!container||typeof THREE==="undefined")return;
+var w=window.innerWidth,h=window.innerHeight;
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(60,w/h,0.1,100);
+camera.position.set(0,0,5);
+var renderer=new THREE.WebGLRenderer({alpha:true,antialias:true,powerPreference:"low-power"});
+renderer.setSize(w,h);renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));
+renderer.setClearColor(0x000000,0);container.appendChild(renderer.domElement);
+var group=new THREE.Group();
+var coreGeo=new THREE.CircleGeometry(0.3,32);
+var coreMat=new THREE.MeshBasicMaterial({color:0x00E5FF,transparent:true,opacity:0.6,side:THREE.DoubleSide});
+var core=new THREE.Mesh(coreGeo,coreMat);group.add(core);
+var ring1=new THREE.Mesh(new THREE.RingGeometry(0.5,0.6,48),new THREE.MeshBasicMaterial({color:0x00E5FF,transparent:true,opacity:0.4,side:THREE.DoubleSide}));
+group.add(ring1);
+var ring2=new THREE.Mesh(new THREE.RingGeometry(0.8,0.95,6),new THREE.MeshBasicMaterial({color:0x2979FF,transparent:true,opacity:0.3,side:THREE.DoubleSide}));
+group.add(ring2);
+var ring3=new THREE.Mesh(new THREE.RingGeometry(1.2,1.3,48),new THREE.MeshBasicMaterial({color:0x00E5FF,transparent:true,opacity:0.2,side:THREE.DoubleSide}));
+group.add(ring3);
+group.add(new THREE.Mesh(new THREE.RingGeometry(1.6,1.65,64),new THREE.MeshBasicMaterial({color:0x00E5FF,transparent:true,opacity:0.1,side:THREE.DoubleSide})));
+for(var li=0;li<8;li++){var geo=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0.35,0,0),new THREE.Vector3(1.5,0,0)]);var line=new THREE.Line(geo,new THREE.LineBasicMaterial({color:0x00E5FF,transparent:true,opacity:0.15}));line.rotation.z=(li/8)*Math.PI*2;group.add(line);}
+scene.add(group);
+var pCount=60,pPos=new Float32Array(pCount*3);
+for(var pi=0;pi<pCount;pi++){var a=Math.random()*Math.PI*2,r=1+Math.random()*3;pPos[pi*3]=Math.cos(a)*r;pPos[pi*3+1]=Math.sin(a)*r;pPos[pi*3+2]=(Math.random()-0.5)*2;}
+var pGeo=new THREE.BufferGeometry();pGeo.setAttribute("position",new THREE.BufferAttribute(pPos,3));
+var particles=new THREE.Points(pGeo,new THREE.PointsMaterial({color:0x00E5FF,size:0.03,transparent:true,opacity:0.5}));
+scene.add(particles);
+var clock=new THREE.Clock();
+function animBg(){if(document.hidden){requestAnimationFrame(animBg);return;}
+var t=clock.getElapsedTime(),b=1+Math.sin(t*0.5)*0.08;
+group.scale.set(b,b,1);ring2.rotation.z=t*0.3;ring3.rotation.z=-t*0.15;
+coreMat.opacity=0.4+Math.sin(t)*0.2;particles.rotation.z=t*0.05;
+camera.position.x=Math.sin(t*0.1)*0.15;camera.position.y=Math.cos(t*0.08)*0.1;
+renderer.render(scene,camera);requestAnimationFrame(animBg);}
+animBg();setTimeout(function(){container.classList.add("active");},1500);
+window.addEventListener("resize",function(){w=window.innerWidth;h=window.innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);});
+})();
+
+(function initParticleField(){
+if(REDUCED_MOTION||window.innerWidth<768)return;
+var field=document.getElementById("particle-field");if(!field)return;
+for(var i=0;i<20;i++){var p=document.createElement("div");p.className="particle";
+p.style.setProperty("--x",Math.random()*100+"%");
+p.style.setProperty("--dur",(6+Math.random()*10)+"s");
+p.style.setProperty("--delay",(-Math.random()*15)+"s");
+p.style.opacity=(0.2+Math.random()*0.5).toFixed(2);
+p.style.width=p.style.height=(1+Math.random()*2)+"px";field.appendChild(p);}
+})();
+function triggerEnergyWave(el){
+if(REDUCED_MOTION)return;var wave=document.createElement("div");wave.className="energy-wave";
+var rect=el.getBoundingClientRect();wave.style.left=(rect.width/2-20)+"px";
+wave.style.top=(rect.height/2-20)+"px";el.style.position="relative";
+el.appendChild(wave);wave.addEventListener("animationend",function(){wave.remove();});
+}
+(function init4DMessageEntrance(){
+if(REDUCED_MOTION)return;
+var style=document.createElement("style");
+style.textContent="@keyframes msg4DEnter{0%{opacity:0;transform:perspective(600px) rotateX(-8deg) translateY(30px) scale(0.95);filter:blur(4px) brightness(1.3)}60%{opacity:1;transform:perspective(600px) rotateX(2deg) translateY(-4px) scale(1.01);filter:blur(0) brightness(1.05)}100%{opacity:1;transform:perspective(600px) rotateX(0) translateY(0) scale(1);filter:blur(0) brightness(1)}}.msg-row.msg-4d-enter{animation:msg4DEnter 0.5s var(--ease) both}";
+document.head.appendChild(style);
+var obs=new MutationObserver(function(muts){muts.forEach(function(m){m.addedNodes.forEach(function(n){
+if(n.nodeType===1&&n.classList&&n.classList.contains("msg-row")){n.classList.add("msg-4d-enter");triggerEnergyWave(n);}
+});});});
+var scrollEl=document.getElementById("msg-scroll");
+if(scrollEl)obs.observe(scrollEl,{childList:true});
+})();
+(function enhanceTypingIndicator(){
+var s=document.createElement("style");
+s.textContent="@keyframes holoType{0%,100%{text-shadow:0 0 8px rgba(var(--cyan-rgb),0.6)}50%{text-shadow:0 0 16px rgba(var(--cyan-rgb),0.9),0 0 30px rgba(var(--cyan-rgb),0.3)}}#thinking{animation:holoType 1.5s ease-in-out infinite}@media(prefers-reduced-motion:reduce){#thinking{animation:none!important}}";
+document.head.appendChild(s);
 })();
 </script>
 </body>
