@@ -3080,7 +3080,7 @@ init();
 })();
 
 (function initArcReactorBackground(){
-if(window.innerWidth<768||REDUCED_MOTION)return;
+if(window.innerWidth<768)return;
 if(navigator.connection&&navigator.connection.saveData)return;
 var container=document.getElementById("arc-reactor-bg");
 if(!container||typeof THREE==="undefined")return;
@@ -3116,7 +3116,7 @@ group.scale.set(b,b,1);ring2.rotation.z=t*0.3;ring3.rotation.z=-t*0.15;
 coreMat.opacity=0.4+Math.sin(t)*0.2;particles.rotation.z=t*0.05;
 camera.position.x=Math.sin(t*0.1)*0.15;camera.position.y=Math.cos(t*0.08)*0.1;
 renderer.render(scene,camera);requestAnimationFrame(animBg);}
-animBg();setTimeout(function(){container.classList.add("active");},1500);
+if(REDUCED_MOTION){renderer.render(scene,camera);}else{animBg();}setTimeout(function(){container.classList.add("active");},1500);
 window.addEventListener("resize",function(){w=window.innerWidth;h=window.innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);});
 })();
 
