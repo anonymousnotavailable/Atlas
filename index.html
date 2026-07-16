@@ -650,8 +650,8 @@ body.ambient-mode #status-bar,body.ambient-mode #console-bar{opacity:0.88;transi
 body.wake-flash{animation:wakeFlash 0.3s ease-out}
 @keyframes wakeFlash{0%{filter:brightness(1.3)}100%{filter:brightness(1)}}
 
-#arc-reactor-bg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.12;transition:opacity 1.5s ease}
-#arc-reactor-bg.active{opacity:0.18}
+#arc-reactor-bg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0;transition:opacity 1.5s ease}
+#arc-reactor-bg.active{opacity:0.55}
 #arc-reactor-bg canvas{width:100%;height:100%}
 .holo-scanline{position:fixed;inset:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(var(--cyan-rgb),0.015) 2px,rgba(var(--cyan-rgb),0.015) 4px);animation:holoScan 8s linear infinite}
 @keyframes holoScan{0%{background-position:0 0}100%{background-position:0 100vh}}
@@ -675,7 +675,7 @@ body.wake-flash{animation:wakeFlash 0.3s ease-out}
 button:focus-visible,input:focus-visible,textarea:focus-visible{box-shadow:0 0 0 3px rgba(var(--cyan-rgb),0.3)}
 .skip-link{position:absolute;top:-100%;left:50%;transform:translateX(-50%);padding:8px 16px;background:var(--bg);color:var(--cyan);border:1px solid var(--cyan);z-index:9999;font-family:var(--font-mono);font-size:12px;text-decoration:none;border-radius:4px;transition:top 0.2s ease}
 .skip-link:focus{top:8px}
-@media(prefers-reduced-motion:reduce){.holo-scanline,.quantum-grid,.particle{display:none!important}#app{animation:none!important}.msg-row:hover{transform:none!important}.wordmark{animation:none!important}.atlas-core{animation:avatarFallbackBreathe 4s ease-in-out infinite!important}#arc-reactor-bg{display:none!important}#msg-scroll{animation:none!important}}
+@media(prefers-reduced-motion:reduce){.holo-scanline,.quantum-grid,.particle{display:none!important}#app{animation:none!important}.msg-row:hover{transform:none!important}.wordmark{animation:none!important}.atlas-core{animation:avatarFallbackBreathe 4s ease-in-out infinite!important}#msg-scroll{animation:none!important}}
 
 </style>
 </head>
