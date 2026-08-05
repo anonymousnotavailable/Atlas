@@ -77,6 +77,15 @@ Both connectors use one OAuth client since they hit the same Google account.
    refresh token, and writes `GOOGLE_REFRESH_TOKEN` into `server/.env`
    automatically.
 
+**Already authorized before?** The script now requests three scopes —
+`gmail.readonly`, `gmail.compose` (draft creation), and full `calendar`
+(event creation), up from just the two readonly scopes. A refresh token
+minted before this change only carries the old scopes, so
+`gmail_create_draft` and `calendar_create_event` will fail with an
+"insufficient permission" error (which Atlas will surface plainly, with
+this same instruction) until you re-run the script and re-authorize —
+Google's consent screen will show the two new permissions being requested.
+
 ## Device location
 
 No credential needed — when you open Atlas on your phone, the browser will

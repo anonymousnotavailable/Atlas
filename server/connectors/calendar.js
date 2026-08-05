@@ -30,6 +30,58 @@ async function upcomingEvents({ maxResults, daysAhead }) {
   }
 }
 
+function scopeHint(res, data) {
+  const msg = data.error?.message || "Calendar request failed.";
+  if (res.status === 403 || /insufficient/i.test(msg)) {
+    return (
+      `${msg} — this needs the full Calendar OAuth scope (not just calendar.readonly), which wasn't granted the ` +
+      "last time Prathmesh authorized. He needs to re-run server/scripts/get-google-refresh-token.js and " +
+      "re-authorize to add it."
+    );
+  }
+  return msg;
+}
+
+async function createEvent({ summary, startDateTime, endDateTime, description, location, attendees }) {
+  if (!googleConfigured()) return { error: NOT_CONFIGURED };
+  if (!summary || !startDateTime || !endDateTime) {
+    return { error: "summary, startDateTime, and endDateTime are all required (ISO 8601, e.g. 2026-08-06T15:00:00+05:30)." };
+  }
+
+  try {
+    const token = await getGoogleAccessToken();
+    const attendeeEmails = Array.isArray(attendees) ? attendees.filter(Boolean) : [];
+    const eventBody = {
+      summary,
+      description: description || undefined,
+      location: location || undefined,
+      start: { dateTime: startDateTime },
+      end: { dateTime: endDateTime },
+      ...(attendeeEmails.length ? { attendees: attendeeEmails.map((email) => ({ email })) } : {}),
+    };
+
+    const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(eventBody),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: scopeHint(res, data) };
+
+    return {
+      eventCreated: true,
+      eventId: data.id,
+      htmlLink: data.htmlLink,
+      summary,
+      start: startDateTime,
+      end: endDateTime,
+      attendeesInvited: attendeeEmails,
+    };
+  } catch (err) {
+    return { error: err.message || "Calendar event creation failed." };
+  }
+}
+
 module.exports = [
   {
     toolSchema: {
@@ -44,5 +96,32 @@ module.exports = [
       },
     },
     execute: upcomingEvents,
+  },
+  {
+    toolSchema: {
+      name: "calendar_create_event",
+      description:
+        "Create a real event on Prathmesh's Google Calendar. This has a live effect — it appears on his calendar " +
+        "immediately, and if attendees are given, they each get a real invite email. Confirm the exact date, time, " +
+        "and any attendees in conversation before calling this unless Prathmesh has already stated them " +
+        "unambiguously — 'book it' after he's given specifics doesn't need re-confirming, but a vague request does.",
+      input_schema: {
+        type: "object",
+        properties: {
+          summary: { type: "string", description: "Event title." },
+          startDateTime: { type: "string", description: "ISO 8601 start, e.g. 2026-08-06T15:00:00+05:30." },
+          endDateTime: { type: "string", description: "ISO 8601 end, e.g. 2026-08-06T16:00:00+05:30." },
+          description: { type: "string", description: "Optional event description/notes." },
+          location: { type: "string", description: "Optional location." },
+          attendees: {
+            type: "array",
+            items: { type: "string" },
+            description: "Optional list of attendee email addresses to invite.",
+          },
+        },
+        required: ["summary", "startDateTime", "endDateTime"],
+      },
+    },
+    execute: createEvent,
   },
 ];

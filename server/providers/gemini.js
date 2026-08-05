@@ -3,7 +3,11 @@
 // with a 404/model-not-found, check aistudio.google.com for the current
 // free-tier model name and set GEMINI_MODEL to match.
 
-const MAX_TOOL_ITERATIONS = 6;
+// Raised from 6: orchestration ("plan my day" pulling calendar + email +
+// memory in one pass) genuinely needs more than 6 tool calls in a single
+// turn once a few tools chain together. 12 is still a hard ceiling, not a
+// target — most turns use 0-2.
+const MAX_TOOL_ITERATIONS = 12;
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 

@@ -1,4 +1,8 @@
-const MAX_TOOL_ITERATIONS = 6;
+// Raised from 6: orchestration ("plan my day" pulling calendar + email +
+// memory in one pass) genuinely needs more than 6 tool calls in a single
+// turn once a few tools chain together. 12 is still a hard ceiling, not a
+// target — most turns use 0-2.
+const MAX_TOOL_ITERATIONS = 12;
 
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-4-6";
 
