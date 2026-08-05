@@ -117,6 +117,15 @@ confident about instead of guessing.
 - Without it, Atlas will say plainly that search isn't connected and fall
   back to `web_fetch` if you give it a specific URL — nothing crashes.
 
+## File generation
+
+No credential needed — when Prathmesh asks Atlas to write something
+substantial (a script, a config, a small document), Atlas can hand it back
+as a real downloadable file via `create_artifact` instead of just pasting
+code into the chat. Kept in server memory for 6 hours (long enough to
+notice and download, capped at 50 at a time) — download it promptly, it's
+not archived anywhere.
+
 ## Memory
 
 No credential needed — Atlas can save/recall/forget facts about you across

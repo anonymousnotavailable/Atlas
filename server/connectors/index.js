@@ -2,12 +2,13 @@ const gmail = require("./gmail");
 const calendar = require("./calendar");
 const webfetch = require("./webfetch");
 const websearch = require("./websearch");
+const artifacts = require("./artifacts");
 const device = require("./device");
 const memory = require("./memory");
 const prism = require("./prism");
 const providers = require("../providers");
 
-const ALL_TOOLS = [...gmail, ...calendar, ...webfetch, ...websearch.tools, ...device.tools, ...memory.tools, ...prism.tools];
+const ALL_TOOLS = [...gmail, ...calendar, ...webfetch, ...websearch.tools, ...artifacts.tools, ...device.tools, ...memory.tools, ...prism.tools];
 
 const TOOL_MAP = new Map(ALL_TOOLS.map((t) => [t.toolSchema.name, t]));
 
@@ -37,6 +38,7 @@ function connectorStatus() {
     { id: "google", label: "Gmail + Calendar (Google)", connected: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN) },
     { id: "webFetch", label: "Web lookups", connected: true },
     { id: "webSearch", label: "Web search (Tavily)", connected: websearch.isConfigured() },
+    { id: "artifacts", label: "File generation", connected: true },
     { id: "deviceLocation", label: "Device location", connected: true },
     { id: "memory", label: "Memory", connected: true },
     { id: "prism", label: "Prism (data analysis)", connected: prism.isConfigured() },
@@ -52,4 +54,5 @@ module.exports = {
   setCurrentDataset: prism.setCurrentDataset,
   getCurrentDataset: prism.getCurrentDataset,
   prismConfigured: prism.isConfigured,
+  getArtifact: artifacts.getArtifact,
 };

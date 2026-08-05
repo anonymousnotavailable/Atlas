@@ -484,6 +484,7 @@ body{
 .extract-btn:hover{background:rgba(255,179,0,0.12)}
 .extract-btn.extracted{color:var(--mint);border-color:rgba(var(--mint-rgb),0.4)}
 .code-body{padding:10px 12px;font-family:var(--font-mono);font-size:12.5px;line-height:1.6;color:#B8E8FF;overflow-x:auto;white-space:pre}
+.artifact-block .code-body{max-height:340px;overflow-y:auto}
 
 .orbit-dots{display:flex;gap:5px;align-items:center}
 .orbit-dot-sm{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:orbitFade 1.2s ease-in-out infinite}
@@ -1423,6 +1424,32 @@ function addStreamingImage(id, dataUri, alt) {
   img.alt = alt || "chart";
   img.style.cssText = "max-width:100%;border-radius:2px;margin-bottom:8px;display:block;border:1px solid rgba(var(--cyan-rgb),0.2)";
   media.appendChild(img);
+  scrollToBottom();
+}
+
+// Renders a generated file as a distinct downloadable card — reuses the
+// code-block visual language (same classes as a ``` fence in renderContent)
+// so it reads as "part of the same system", but with a real download link
+// instead of just a copy button, since the point is Prathmesh can actually
+// save and run it.
+function addStreamingArtifact(id, artifact) {
+  const div = document.getElementById(`msg-${id}`);
+  if (!div) return;
+  const media = div.querySelector(".stream-media");
+  const codeId = "artifact-code-" + (++codeBlockSeq) + "-" + Date.now();
+  const wrap = document.createElement("div");
+  wrap.className = "code-block artifact-block";
+  wrap.innerHTML = `
+    <div class="code-head">
+      <span>📄 ${escapeHtml(artifact.filename)}${artifact.lines ? ` · ${artifact.lines} lines` : ""}</span>
+      <div style="display:flex;gap:6px">
+        <button class="extract-btn rippleable" onclick="extractCode('${codeId}', this)">⧉ COPY</button>
+        <a class="extract-btn rippleable" href="${API_BASE}/api/artifacts/${artifact.id}/download" download="${escapeHtml(artifact.filename)}">⬇ DOWNLOAD</a>
+      </div>
+    </div>
+    ${artifact.description ? `<div style="padding:8px 12px 0;font-size:12px;color:#8FE9FF;font-family:var(--font-mono)">${escapeHtml(artifact.description)}</div>` : ""}
+    <pre id="${codeId}" class="code-body">${escapeHtml(artifact.content)}</pre>`;
+  media.appendChild(wrap);
   scrollToBottom();
 }
 
@@ -2428,6 +2455,13 @@ async function sendMessage(overrideText) {
             bubbleText = addStreamingMessage(streamId);
           }
           addStreamingImage(streamId, evt.dataUri, evt.alt);
+        } else if (evt.type === "artifact") {
+          if (!bubbleText) {
+            document.getElementById("thinking").style.display = "none";
+            streamId = Date.now();
+            bubbleText = addStreamingMessage(streamId);
+          }
+          addStreamingArtifact(streamId, evt);
         } else if (evt.type === "usage") {
           handleUsageEvent(evt.usage, evt.today);
         } else if (evt.type === "done") {
