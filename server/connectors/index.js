@@ -36,7 +36,7 @@ function connectorStatus() {
     { id: "elevenlabs", label: "Voice (ElevenLabs)", connected: Boolean(process.env.ELEVENLABS_API_KEY && process.env.ELEVENLABS_VOICE_ID) },
     { id: "google", label: "Gmail + Calendar (Google)", connected: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN) },
     { id: "webFetch", label: "Web lookups", connected: true },
-    { id: "webSearch", label: "Web search (Brave)", connected: websearch.isConfigured() },
+    { id: "webSearch", label: "Web search (Tavily)", connected: websearch.isConfigured() },
     { id: "deviceLocation", label: "Device location", connected: true },
     { id: "memory", label: "Memory", connected: true },
     { id: "prism", label: "Prism (data analysis)", connected: prism.isConfigured() },

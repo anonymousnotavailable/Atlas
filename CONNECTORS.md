@@ -109,9 +109,11 @@ real browser session under your identity.
 open-ended "look this up" capability, so Atlas can answer things it isn't
 confident about instead of guessing.
 
-- `BRAVE_SEARCH_API_KEY` — [Brave Search API dashboard](https://api-dashboard.search.brave.com/register),
-  free tier (2,000 queries/month, no card required). Sign up → create a
-  subscription on the "Free" plan → copy the API key.
+- `TAVILY_API_KEY` — [tavily.com](https://app.tavily.com), sign up with
+  email → the dashboard shows your API key immediately. Free tier is 1,000
+  searches/month, **no card required** (this was built specifically for AI
+  agents doing exactly this, unlike general search APIs that gate the free
+  tier behind card verification).
 - Without it, Atlas will say plainly that search isn't connected and fall
   back to `web_fetch` if you give it a specific URL — nothing crashes.
 

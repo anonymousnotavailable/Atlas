@@ -1,9 +1,14 @@
 const NOT_CONFIGURED =
-  "Web search isn't connected yet. Prathmesh needs to set BRAVE_SEARCH_API_KEY in server/.env (see CONNECTORS.md) — " +
+  "Web search isn't connected yet. Prathmesh needs to set TAVILY_API_KEY in server/.env (see CONNECTORS.md) — " +
   "web_fetch still works for a URL he already has, but open search needs this.";
 
+// pd/pw/pm/py kept as the tool's own vocabulary (matches web_fetch-adjacent
+// tools elsewhere) and mapped to Tavily's time_range values here, so a
+// future provider swap only touches this one file.
+const FRESHNESS_MAP = { pd: "day", pw: "week", pm: "month", py: "year" };
+
 function isConfigured() {
-  return Boolean(process.env.BRAVE_SEARCH_API_KEY);
+  return Boolean(process.env.TAVILY_API_KEY);
 }
 
 async function webSearch({ query, count, freshness }) {
@@ -11,41 +16,43 @@ async function webSearch({ query, count, freshness }) {
   if (!query || !query.trim()) return { error: "query is required." };
 
   const limit = Math.min(10, Math.max(1, parseInt(count, 10) || 5));
-  const params = new URLSearchParams({ q: query.trim(), count: String(limit) });
-  // Brave's freshness filter: pd=past day, pw=past week, pm=past month, py=past year.
-  if (freshness && ["pd", "pw", "pm", "py"].includes(freshness)) {
-    params.set("freshness", freshness);
-  }
+  const body = {
+    api_key: process.env.TAVILY_API_KEY,
+    query: query.trim(),
+    max_results: limit,
+    search_depth: "basic",
+  };
+  if (freshness && FRESHNESS_MAP[freshness]) body.time_range = FRESHNESS_MAP[freshness];
 
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const res = await fetch(`https://api.search.brave.com/res/v1/web/search?${params}`, {
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
       signal: controller.signal,
-      headers: {
-        Accept: "application/json",
-        "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY,
-      },
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
     });
     clearTimeout(timeout);
 
     if (!res.ok) {
       if (res.status === 401 || res.status === 403) {
-        return { error: "Brave Search rejected the API key — check BRAVE_SEARCH_API_KEY in server/.env." };
+        return { error: "Tavily rejected the API key — check TAVILY_API_KEY in server/.env." };
       }
       if (res.status === 429) {
-        return { error: "Brave Search rate limit hit — the free tier caps requests per second/month. Try again shortly." };
+        return { error: "Tavily rate limit hit — the free tier caps monthly credits. Try again shortly." };
       }
-      return { error: `Web search failed with status ${res.status}.` };
+      const errBody = await res.json().catch(() => ({}));
+      return { error: errBody.detail || errBody.error || `Web search failed with status ${res.status}.` };
     }
 
     const data = await res.json();
-    const results = (data.web?.results || []).slice(0, limit).map((r) => ({
+    const results = (data.results || []).slice(0, limit).map((r) => ({
       title: r.title || "",
       url: r.url,
-      snippet: (r.description || "").replace(/<\/?strong>/g, ""),
-      age: r.age || undefined,
+      snippet: (r.content || "").slice(0, 500),
+      publishedDate: r.published_date || undefined,
     }));
 
     if (results.length === 0) return { results: [], note: `No results for "${query}".` };
