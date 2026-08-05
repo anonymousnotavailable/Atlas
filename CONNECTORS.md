@@ -103,6 +103,18 @@ is a separate, higher-effort piece — see PLAN.md row 3 — and intentionally
 wasn't wired up unattended given the blast radius of an agent driving a
 real browser session under your identity.
 
+## Web search
+
+`web_fetch` only works on a URL you already have — `web_search` is the
+open-ended "look this up" capability, so Atlas can answer things it isn't
+confident about instead of guessing.
+
+- `BRAVE_SEARCH_API_KEY` — [Brave Search API dashboard](https://api-dashboard.search.brave.com/register),
+  free tier (2,000 queries/month, no card required). Sign up → create a
+  subscription on the "Free" plan → copy the API key.
+- Without it, Atlas will say plainly that search isn't connected and fall
+  back to `web_fetch` if you give it a specific URL — nothing crashes.
+
 ## Memory
 
 No credential needed — Atlas can save/recall/forget facts about you across
