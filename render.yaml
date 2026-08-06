@@ -29,3 +29,11 @@ services:
         sync: false
       - key: PRISM_API_URL
         sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: BRIEFING_HOUR
+        value: "7"
+      - key: BRIEFING_TIMEZONE
+        value: UTC
+      - key: VAPID_SUBJECT
+        sync: false
