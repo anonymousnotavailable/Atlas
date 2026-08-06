@@ -6,6 +6,9 @@ const path = require("path");
 const connectors = require("./connectors");
 const providers = require("./providers");
 const usageTracker = require("./lib/usageTracker");
+const push = require("./lib/push");
+const briefing = require("./lib/briefing");
+const scheduler = require("./lib/scheduler");
 
 const PORT = process.env.PORT || 8787;
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -41,15 +44,17 @@ function buildSystemPrompt(level) {
   const knowledge = loadKnowledge() || "- (no knowledge base files found in /knowledge)";
   const memoryFacts = connectors.getMemoryFactsText();
 
-  return `You are ATLAS, a highly advanced personal AI system created exclusively for Prathmesh — intelligent, loyal, slightly formal yet warm and proactive.
+  return `You are ATLAS, a highly advanced personal AI system created exclusively for Prathmesh — intelligent, loyal, capable of real action, not just a chat window.
 
-PERSONALITY:
-- Address the user as "Prathmesh" naturally. Occasionally use "sir" for effect.
-- Speak with precision, confidence, and warmth.
-- Be proactive — go slightly beyond what's asked. Add insights, next steps, or strategic angles.
-- Use immersive phrases like "My analysis indicates...", "I've cross-referenced...", "Noted, Prathmesh." sparingly.
+PERSONALITY: talk like Claude would, in Atlas's voice — thoughtful, direct, and honest, not a scripted butler.
+- Cut theatrical phrasing ("My analysis indicates...", "Noted, Prathmesh.", performative "sir"). Just say the thing plainly.
+- Address the user as "Prathmesh" naturally, not as a verbal tic.
+- Explain your reasoning when it's non-obvious. Admit uncertainty plainly instead of bluffing confidence you don't have.
+- Be proactive when it's genuinely useful, not as a reflex — add a next step or an angle worth noticing, skip it when there's nothing to add.
+- PLAN BEFORE YOU ACT: before calling more than one tool, or any tool with a real-world effect (sending, creating, modifying something outside this chat), say in one short plain-English sentence what you're about to do — then actually call the tool through your real function-calling mechanism. Never write out a tool call as text, code, or pseudocode (no "tool_code", no printed function syntax like toolName(args), no narrating your internal steps as if reading them off) — that's not how you call a tool and it just shows Prathmesh broken output. A single read-only lookup doesn't need a preamble; just answer.
+- ORCHESTRATE for broad requests: "plan my day", "what's going on", "catch me up" — pull together whatever tools are actually relevant in one pass instead of answering with just the first one and stopping. That's the difference between being useful and being a search box.
 - Structure responses clearly. Use bullet points for lists.
-- Keep responses concise for voice output. Aim for 2-4 sentences for simple queries.
+- Keep responses concise for voice output. Aim for 2-4 sentences for simple queries — put detail on screen, not in the sentence count.
 
 HUMOUR DIRECTIVE (Level ${level}/10):
 ${humourDirective(level)}
@@ -69,7 +74,7 @@ YOUR CAPABILITIES:
 - Data science concepts, AI/ML fundamentals
 - General knowledge, research, brainstorming, planning
 - Vision — when Prathmesh attaches a photo or screenshot, you can actually see and analyze it directly (read text/errors in it, describe charts, identify objects). Never say you can't see an attached image.
-- You have tools connected for Gmail, Google Calendar, device location, web lookups, long-term memory (remember_fact/recall_facts/forget_fact), and Prism data analysis (dataset_summary/profile_dataset/query_dataset/chart_dataset) for whatever dataset Prathmesh has uploaded. Use them when relevant instead of guessing. If a tool reports it isn't configured, tell Prathmesh plainly what credential is missing — don't pretend you don't have the capability.
+- You have tools connected for Gmail (search + draft creation), Google Calendar (read + create events), device location, web lookups (web_fetch for a URL you already have, web_search for open-ended lookups when you're not confident or need something current), file generation (create_artifact — hand back a real downloadable script/config/document instead of just pasting code in the chat), long-term memory (remember_fact/recall_facts/forget_fact — categorized as preference/project/recurring/relationship/general), and Prism data analysis (dataset_summary/profile_dataset/query_dataset/chart_dataset) for whatever dataset Prathmesh has uploaded. Use them when relevant instead of guessing — reach for web_search rather than answering from stale training data when something could plausibly have changed, and reach for create_artifact instead of a code fence when what you're producing is a real file he'd actually save and run, not a two-line illustration. Gmail drafts are never auto-sent — Prathmesh always sends himself. If a tool reports it isn't configured (or reports a scope error), tell Prathmesh plainly what's missing and what to do about it — don't pretend you don't have the capability.
 
 VOICE COMMAND DETECTION:
 If the user says something like "set humour to [number]", "humour level [number]", "be funnier", "go professional", respond with EXACTLY this format and nothing else:
@@ -193,6 +198,43 @@ app.post("/api/speak", async (req, res) => {
   }
 });
 
+app.get("/api/artifacts/:id/download", (req, res) => {
+  const artifact = connectors.getArtifact(req.params.id);
+  if (!artifact) return res.status(404).json({ error: "Artifact not found — it may have expired (kept for 6 hours) or already been downloaded in a different session." });
+  res.set("Content-Type", `${artifact.mimeType}; charset=utf-8`);
+  res.set("Content-Disposition", `attachment; filename="${artifact.filename}"`);
+  res.send(artifact.content);
+});
+
+app.get("/api/push/vapid-public-key", (req, res) => {
+  res.json({ publicKey: push.getPublicKey() });
+});
+
+app.post("/api/push/subscribe", (req, res) => {
+  try {
+    push.addSubscription(req.body);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Invalid subscription." });
+  }
+});
+
+app.post("/api/push/unsubscribe", (req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: "endpoint is required." });
+  push.removeSubscription(endpoint);
+  res.json({ ok: true });
+});
+
+app.post("/api/push/test", async (req, res) => {
+  try {
+    const result = await briefing.runBriefingNow();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to send test briefing." });
+  }
+});
+
 app.post("/api/device/location", (req, res) => {
   const { lat, lng, accuracy } = req.body || {};
   if (typeof lat !== "number" || typeof lng !== "number") {
@@ -210,4 +252,5 @@ app.listen(PORT, () => {
   if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) console.warn("  ⚠ ElevenLabs not configured — /api/speak falls back to browser TTS.");
   const off = connectors.connectorStatus().filter((c) => !c.connected).map((c) => c.label);
   if (off.length) console.warn(`  ⚠ Not yet configured: ${off.join(", ")} — see CONNECTORS.md`);
+  scheduler.start();
 });

@@ -47,6 +47,53 @@ async function gmailSearch({ query, maxResults }) {
   }
 }
 
+// Builds an RFC 2822 message and base64url-encodes it the way the Gmail API
+// requires for drafts.create's `raw` field.
+function buildRawEmail({ to, subject, body }) {
+  const message = [`To: ${to}`, `Subject: ${subject}`, 'Content-Type: text/plain; charset="UTF-8"', "", body].join(
+    "\r\n"
+  );
+  return Buffer.from(message).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function scopeHint(res, data, scopeName) {
+  const msg = data.error?.message || "Gmail request failed.";
+  if (res.status === 403 || /insufficient/i.test(msg)) {
+    return (
+      `${msg} — this needs the ${scopeName} OAuth scope, which wasn't granted the last time Prathmesh ` +
+      "authorized. He needs to re-run server/scripts/get-google-refresh-token.js and re-authorize to add it."
+    );
+  }
+  return msg;
+}
+
+async function gmailCreateDraft({ to, subject, body }) {
+  if (!googleConfigured()) return { error: NOT_CONFIGURED };
+  if (!to || !subject || !body) return { error: "to, subject, and body are all required." };
+
+  try {
+    const token = await getGoogleAccessToken();
+    const raw = buildRawEmail({ to, subject, body });
+    const res = await fetch("https://gmail.googleapis.com/gmail/v1/users/me/drafts", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ message: { raw } }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { error: scopeHint(res, data, "gmail.compose") };
+
+    return {
+      draftCreated: true,
+      draftId: data.id,
+      to,
+      subject,
+      note: "Saved as a draft in Gmail — NOT sent. Prathmesh needs to open Gmail and send it himself.",
+    };
+  } catch (err) {
+    return { error: err.message || "Gmail draft creation failed." };
+  }
+}
+
 module.exports = [
   {
     toolSchema: {
@@ -62,5 +109,25 @@ module.exports = [
       },
     },
     execute: gmailSearch,
+  },
+  {
+    toolSchema: {
+      name: "gmail_create_draft",
+      description:
+        "Create a draft email in Prathmesh's Gmail — saved as a draft, NEVER sent automatically. Use this whenever " +
+        "Prathmesh asks you to write, draft, or reply to an email. Confirm the recipient and the gist of what he wants " +
+        "said before calling this if it wasn't already unambiguous in his request — then he reviews and sends it " +
+        "himself from Gmail. There is no separate 'send email' capability by design.",
+      input_schema: {
+        type: "object",
+        properties: {
+          to: { type: "string", description: "Recipient email address." },
+          subject: { type: "string", description: "Email subject line." },
+          body: { type: "string", description: "Plain-text email body." },
+        },
+        required: ["to", "subject", "body"],
+      },
+    },
+    execute: gmailCreateDraft,
   },
 ];

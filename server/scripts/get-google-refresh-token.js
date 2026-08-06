@@ -39,9 +39,15 @@ const fs = require("fs");
 
 const PORT = 53682;
 const REDIRECT_URI = `http://127.0.0.1:${PORT}`;
+// gmail.compose (draft creation) and full calendar (event creation) added
+// alongside the original readonly scopes — Atlas can now draft emails and
+// create calendar events, not just read them. If your existing
+// GOOGLE_REFRESH_TOKEN predates this, gmail_create_draft/calendar_create_event
+// will fail with a scope error until you re-run this script and re-authorize.
 const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
-  "https://www.googleapis.com/auth/calendar.readonly",
+  "https://www.googleapis.com/auth/gmail.compose",
+  "https://www.googleapis.com/auth/calendar",
 ].join(" ");
 
 const CLIENT_ID = process.argv[2] || process.env.GOOGLE_CLIENT_ID;

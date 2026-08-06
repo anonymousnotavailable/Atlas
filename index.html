@@ -484,6 +484,7 @@ body{
 .extract-btn:hover{background:rgba(255,179,0,0.12)}
 .extract-btn.extracted{color:var(--mint);border-color:rgba(var(--mint-rgb),0.4)}
 .code-body{padding:10px 12px;font-family:var(--font-mono);font-size:12.5px;line-height:1.6;color:#B8E8FF;overflow-x:auto;white-space:pre}
+.artifact-block .code-body{max-height:340px;overflow-y:auto}
 
 .orbit-dots{display:flex;gap:5px;align-items:center}
 .orbit-dot-sm{width:5px;height:5px;border-radius:50%;background:var(--cyan);animation:orbitFade 1.2s ease-in-out infinite}
@@ -1426,6 +1427,32 @@ function addStreamingImage(id, dataUri, alt) {
   scrollToBottom();
 }
 
+// Renders a generated file as a distinct downloadable card — reuses the
+// code-block visual language (same classes as a ``` fence in renderContent)
+// so it reads as "part of the same system", but with a real download link
+// instead of just a copy button, since the point is Prathmesh can actually
+// save and run it.
+function addStreamingArtifact(id, artifact) {
+  const div = document.getElementById(`msg-${id}`);
+  if (!div) return;
+  const media = div.querySelector(".stream-media");
+  const codeId = "artifact-code-" + (++codeBlockSeq) + "-" + Date.now();
+  const wrap = document.createElement("div");
+  wrap.className = "code-block artifact-block";
+  wrap.innerHTML = `
+    <div class="code-head">
+      <span>📄 ${escapeHtml(artifact.filename)}${artifact.lines ? ` · ${artifact.lines} lines` : ""}</span>
+      <div style="display:flex;gap:6px">
+        <button class="extract-btn rippleable" onclick="extractCode('${codeId}', this)">⧉ COPY</button>
+        <a class="extract-btn rippleable" href="${API_BASE}/api/artifacts/${artifact.id}/download" download="${escapeHtml(artifact.filename)}">⬇ DOWNLOAD</a>
+      </div>
+    </div>
+    ${artifact.description ? `<div style="padding:8px 12px 0;font-size:12px;color:#8FE9FF;font-family:var(--font-mono)">${escapeHtml(artifact.description)}</div>` : ""}
+    <pre id="${codeId}" class="code-body">${escapeHtml(artifact.content)}</pre>`;
+  media.appendChild(wrap);
+  scrollToBottom();
+}
+
 function finalizeStreamingMessage(id, content) {
   const div = document.getElementById(`msg-${id}`);
   if (!div) return;
@@ -1512,6 +1539,81 @@ function flashToast(text, ms = 2200) {
   el.classList.add("show");
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove("show"), ms);
+}
+
+// ─── MORNING BRIEFING (Web Push) ────────────────────────────────────────
+// Standard Web Push, not FCM — no third-party account, just a VAPID
+// keypair the server generates itself. See CONNECTORS.md.
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function enableBriefing() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    flashToast("Push notifications aren't supported in this browser.");
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") {
+      flashToast("Notification permission denied — enable it in your browser's site settings to get the briefing.");
+      return;
+    }
+    const keyRes = await fetch(`${API_BASE}/api/push/vapid-public-key`);
+    const { publicKey } = await keyRes.json();
+    if (!publicKey) { flashToast("Push isn't configured on the server."); return; }
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+    }
+    await fetch(`${API_BASE}/api/push/subscribe`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub),
+    });
+    localStorage.setItem("atlas_briefing_enabled", "1");
+    flashToast("Morning briefing enabled, Prathmesh — I'll check in daily.");
+  } catch (err) {
+    flashToast(`Couldn't enable the briefing: ${err.message || "unknown error"}`);
+  }
+}
+
+async function disableBriefing() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch(`${API_BASE}/api/push/unsubscribe`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+    }
+    localStorage.removeItem("atlas_briefing_enabled");
+    flashToast("Morning briefing turned off.");
+  } catch (err) {
+    flashToast(`Couldn't disable the briefing: ${err.message || "unknown error"}`);
+  }
+}
+
+async function testBriefing() {
+  flashToast("Sending a test briefing now…");
+  try {
+    const res = await fetch(`${API_BASE}/api/push/test`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "request failed");
+    if (data.skipped) flashToast("No active subscription yet — run /briefing first.");
+    else if (data.sent > 0) flashToast("Test briefing sent — check your notifications.");
+    else flashToast("Sent to 0 devices — the subscription may have expired, try /briefing again.");
+  } catch (err) {
+    flashToast(`Test failed: ${err.message || "unknown error"}`);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -2245,6 +2347,9 @@ const SLASH_COMMANDS = [
   { cmd: "/voice", desc: "Toggle hands-free conversation mode", run: () => { setInputValue(""); toggleConversationMode(); } },
   { cmd: "/sound", desc: "Toggle UI sound design", run: () => { setInputValue(""); toggleSound(); } },
   { cmd: "/theme", desc: "Dark mode only — sci-fi AI has no light mode", run: () => { setInputValue(""); flashToast("DARK MODE IS THE ONLY MODE, PRATHMESH."); } },
+  { cmd: "/briefing", desc: "Enable the daily morning briefing (push notification)", run: () => { setInputValue(""); enableBriefing(); } },
+  { cmd: "/briefingoff", desc: "Turn off the morning briefing", run: () => { setInputValue(""); disableBriefing(); } },
+  { cmd: "/briefingtest", desc: "Send a test briefing right now", run: () => { setInputValue(""); testBriefing(); } },
 ];
 let slashActiveIndex = 0;
 let slashFiltered = [];
@@ -2428,6 +2533,13 @@ async function sendMessage(overrideText) {
             bubbleText = addStreamingMessage(streamId);
           }
           addStreamingImage(streamId, evt.dataUri, evt.alt);
+        } else if (evt.type === "artifact") {
+          if (!bubbleText) {
+            document.getElementById("thinking").style.display = "none";
+            streamId = Date.now();
+            bubbleText = addStreamingMessage(streamId);
+          }
+          addStreamingArtifact(streamId, evt);
         } else if (evt.type === "usage") {
           handleUsageEvent(evt.usage, evt.today);
         } else if (evt.type === "done") {
@@ -2911,6 +3023,7 @@ init();
     {label:'Jump to Latest Message', key:'JUMP', run:function(){ safeInvoke(['jumpToBottom','scrollToBottom'],[]); }},
     {label:'Focus Message Input', key:'TYPE', run:function(){ focusInput(); }},
     {label:'Open Wires', key:'LINK', run:function(){ window.open('wires.html','_blank'); }},
+    {label:'Enable Morning Briefing', key:'BRIEFING', run:function(){ if (typeof enableBriefing === 'function') enableBriefing(); }},
     {label:'Wave (Atlas Avatar)', key:'AVATAR', run:function(){ try{ window.atlasAvatarReact && window.atlasAvatarReact('wave'); }catch(e){} }}
   ];
 
