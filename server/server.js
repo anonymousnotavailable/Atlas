@@ -6,6 +6,9 @@ const path = require("path");
 const connectors = require("./connectors");
 const providers = require("./providers");
 const usageTracker = require("./lib/usageTracker");
+const push = require("./lib/push");
+const briefing = require("./lib/briefing");
+const scheduler = require("./lib/scheduler");
 
 const PORT = process.env.PORT || 8787;
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
@@ -203,6 +206,35 @@ app.get("/api/artifacts/:id/download", (req, res) => {
   res.send(artifact.content);
 });
 
+app.get("/api/push/vapid-public-key", (req, res) => {
+  res.json({ publicKey: push.getPublicKey() });
+});
+
+app.post("/api/push/subscribe", (req, res) => {
+  try {
+    push.addSubscription(req.body);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(400).json({ error: err.message || "Invalid subscription." });
+  }
+});
+
+app.post("/api/push/unsubscribe", (req, res) => {
+  const { endpoint } = req.body || {};
+  if (!endpoint) return res.status(400).json({ error: "endpoint is required." });
+  push.removeSubscription(endpoint);
+  res.json({ ok: true });
+});
+
+app.post("/api/push/test", async (req, res) => {
+  try {
+    const result = await briefing.runBriefingNow();
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to send test briefing." });
+  }
+});
+
 app.post("/api/device/location", (req, res) => {
   const { lat, lng, accuracy } = req.body || {};
   if (typeof lat !== "number" || typeof lng !== "number") {
@@ -220,4 +252,5 @@ app.listen(PORT, () => {
   if (!ELEVENLABS_API_KEY || !ELEVENLABS_VOICE_ID) console.warn("  ⚠ ElevenLabs not configured — /api/speak falls back to browser TTS.");
   const off = connectors.connectorStatus().filter((c) => !c.connected).map((c) => c.label);
   if (off.length) console.warn(`  ⚠ Not yet configured: ${off.join(", ")} — see CONNECTORS.md`);
+  scheduler.start();
 });

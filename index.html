@@ -1541,6 +1541,81 @@ function flashToast(text, ms = 2200) {
   toastTimer = setTimeout(() => el.classList.remove("show"), ms);
 }
 
+// ─── MORNING BRIEFING (Web Push) ────────────────────────────────────────
+// Standard Web Push, not FCM — no third-party account, just a VAPID
+// keypair the server generates itself. See CONNECTORS.md.
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+  return arr;
+}
+
+async function enableBriefing() {
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+    flashToast("Push notifications aren't supported in this browser.");
+    return;
+  }
+  try {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") {
+      flashToast("Notification permission denied — enable it in your browser's site settings to get the briefing.");
+      return;
+    }
+    const keyRes = await fetch(`${API_BASE}/api/push/vapid-public-key`);
+    const { publicKey } = await keyRes.json();
+    if (!publicKey) { flashToast("Push isn't configured on the server."); return; }
+
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(publicKey) });
+    }
+    await fetch(`${API_BASE}/api/push/subscribe`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(sub),
+    });
+    localStorage.setItem("atlas_briefing_enabled", "1");
+    flashToast("Morning briefing enabled, Prathmesh — I'll check in daily.");
+  } catch (err) {
+    flashToast(`Couldn't enable the briefing: ${err.message || "unknown error"}`);
+  }
+}
+
+async function disableBriefing() {
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        await fetch(`${API_BASE}/api/push/unsubscribe`, {
+          method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        await sub.unsubscribe();
+      }
+    }
+    localStorage.removeItem("atlas_briefing_enabled");
+    flashToast("Morning briefing turned off.");
+  } catch (err) {
+    flashToast(`Couldn't disable the briefing: ${err.message || "unknown error"}`);
+  }
+}
+
+async function testBriefing() {
+  flashToast("Sending a test briefing now…");
+  try {
+    const res = await fetch(`${API_BASE}/api/push/test`, { method: "POST" });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "request failed");
+    if (data.skipped) flashToast("No active subscription yet — run /briefing first.");
+    else if (data.sent > 0) flashToast("Test briefing sent — check your notifications.");
+    else flashToast("Sent to 0 devices — the subscription may have expired, try /briefing again.");
+  } catch (err) {
+    flashToast(`Test failed: ${err.message || "unknown error"}`);
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // THEME SYSTEM
 const THEMES = [
@@ -2272,6 +2347,9 @@ const SLASH_COMMANDS = [
   { cmd: "/voice", desc: "Toggle hands-free conversation mode", run: () => { setInputValue(""); toggleConversationMode(); } },
   { cmd: "/sound", desc: "Toggle UI sound design", run: () => { setInputValue(""); toggleSound(); } },
   { cmd: "/theme", desc: "Dark mode only — sci-fi AI has no light mode", run: () => { setInputValue(""); flashToast("DARK MODE IS THE ONLY MODE, PRATHMESH."); } },
+  { cmd: "/briefing", desc: "Enable the daily morning briefing (push notification)", run: () => { setInputValue(""); enableBriefing(); } },
+  { cmd: "/briefingoff", desc: "Turn off the morning briefing", run: () => { setInputValue(""); disableBriefing(); } },
+  { cmd: "/briefingtest", desc: "Send a test briefing right now", run: () => { setInputValue(""); testBriefing(); } },
 ];
 let slashActiveIndex = 0;
 let slashFiltered = [];
@@ -2945,6 +3023,7 @@ init();
     {label:'Jump to Latest Message', key:'JUMP', run:function(){ safeInvoke(['jumpToBottom','scrollToBottom'],[]); }},
     {label:'Focus Message Input', key:'TYPE', run:function(){ focusInput(); }},
     {label:'Open Wires', key:'LINK', run:function(){ window.open('wires.html','_blank'); }},
+    {label:'Enable Morning Briefing', key:'BRIEFING', run:function(){ if (typeof enableBriefing === 'function') enableBriefing(); }},
     {label:'Wave (Atlas Avatar)', key:'AVATAR', run:function(){ try{ window.atlasAvatarReact && window.atlasAvatarReact('wave'); }catch(e){} }}
   ];
 

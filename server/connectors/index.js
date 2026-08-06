@@ -7,6 +7,7 @@ const device = require("./device");
 const memory = require("./memory");
 const prism = require("./prism");
 const providers = require("../providers");
+const push = require("../lib/push");
 
 const ALL_TOOLS = [...gmail, ...calendar, ...webfetch, ...websearch.tools, ...artifacts.tools, ...device.tools, ...memory.tools, ...prism.tools];
 
@@ -39,6 +40,7 @@ function connectorStatus() {
     { id: "webFetch", label: "Web lookups", connected: true },
     { id: "webSearch", label: "Web search (Tavily)", connected: websearch.isConfigured() },
     { id: "artifacts", label: "File generation", connected: true },
+    { id: "briefing", label: "Morning briefing (push)", connected: push.hasSubscriptions() },
     { id: "deviceLocation", label: "Device location", connected: true },
     { id: "memory", label: "Memory", connected: true },
     { id: "prism", label: "Prism (data analysis)", connected: prism.isConfigured() },
