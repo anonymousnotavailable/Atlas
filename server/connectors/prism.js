@@ -89,6 +89,33 @@ async function chartDataset({ column }, emit) {
   }
 }
 
+async function switchDatasetSheet({ sheet }) {
+  if (!isConfigured()) return { error: NOT_CONFIGURED };
+  if (!current) return { error: NO_DATASET };
+  if (!sheet) return { error: "sheet is required." };
+  if (!current.sheetNames || current.sheetNames.length <= 1) {
+    return { error: "The currently loaded dataset isn't a multi-sheet workbook — nothing to switch." };
+  }
+  try {
+    const data = await prismFetch(`/switch-sheet/${current.datasetId}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sheet }),
+    });
+    current = {
+      datasetId: data.datasetId,
+      name: data.name,
+      rows: data.rows,
+      columns: data.columns,
+      sheetNames: data.sheetNames,
+      activeSheet: data.activeSheet,
+    };
+    return { sheetSwitched: true, activeSheet: data.activeSheet, rows: data.rows, columns: data.columns, warnings: data.warnings };
+  } catch (err) {
+    return { error: err.message || "Prism request failed." };
+  }
+}
+
 module.exports = {
   setCurrentDataset,
   getCurrentDataset,
@@ -133,6 +160,18 @@ module.exports = {
         },
       },
       execute: chartDataset,
+    },
+    {
+      toolSchema: {
+        name: "switch_dataset_sheet",
+        description: "Switch the currently loaded dataset to a different sheet of the same Excel workbook — only relevant when the currently-loaded-dataset info mentions multiple sheets. All other dataset tools then operate on the newly active sheet.",
+        input_schema: {
+          type: "object",
+          properties: { sheet: { type: "string", description: "Exact sheet name to switch to (from the sheet list already mentioned)." } },
+          required: ["sheet"],
+        },
+      },
+      execute: switchDatasetSheet,
     },
   ],
 };

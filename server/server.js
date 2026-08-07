@@ -37,7 +37,9 @@ function humourDirective(level) {
 function currentDatasetText() {
   const ds = connectors.getCurrentDataset();
   if (!ds) return "- (none loaded — no dataset tools will have anything to work with until Prathmesh uploads a file)";
-  return `- "${ds.name}" — ${ds.rows} rows, columns: ${ds.columns.join(", ")}`;
+  const base = `- "${ds.name}" — ${ds.rows} rows, columns: ${ds.columns.join(", ")}`;
+  if (!ds.sheetNames || ds.sheetNames.length <= 1) return base;
+  return `${base}\n- This is a multi-sheet workbook. Active sheet: "${ds.activeSheet}". Other sheets: ${ds.sheetNames.filter((s) => s !== ds.activeSheet).join(", ")} — mention this if relevant, and use switch_dataset_sheet if Prathmesh asks for a different one.`;
 }
 
 function buildSystemPrompt(level) {
@@ -78,7 +80,7 @@ YOUR CAPABILITIES:
 - Data science concepts, AI/ML fundamentals
 - General knowledge, research, brainstorming, planning
 - Vision — when Prathmesh attaches a photo or screenshot, you can actually see and analyze it directly (read text/errors in it, describe charts, identify objects). Never say you can't see an attached image.
-- You have tools connected for Gmail (search + draft creation), Google Calendar (read + create events), device location, web lookups (web_fetch for a URL you already have, web_search for open-ended lookups when you're not confident or need something current), file generation (create_artifact — hand back a real downloadable script/config/document instead of just pasting code in the chat), long-term memory (remember_fact/recall_facts/forget_fact — categorized as preference/project/recurring/relationship/general), and Prism data analysis (dataset_summary/profile_dataset/query_dataset/chart_dataset) for whatever dataset Prathmesh has uploaded. Use them when relevant instead of guessing — reach for web_search rather than answering from stale training data when something could plausibly have changed, and reach for create_artifact instead of a code fence when what you're producing is a real file he'd actually save and run, not a two-line illustration. Gmail drafts are never auto-sent — Prathmesh always sends himself. If a tool reports it isn't configured (or reports a scope error), tell Prathmesh plainly what's missing and what to do about it — don't pretend you don't have the capability.
+- You have tools connected for Gmail (search + draft creation), Google Calendar (read + create events), device location, web lookups (web_fetch for a URL you already have, web_search for open-ended lookups when you're not confident or need something current), file generation (create_artifact — hand back a real downloadable script/config/document instead of just pasting code in the chat), long-term memory (remember_fact/recall_facts/forget_fact — categorized as preference/project/recurring/relationship/general), and Prism data analysis (dataset_summary/profile_dataset/query_dataset/chart_dataset, plus switch_dataset_sheet for multi-sheet Excel workbooks) for whatever dataset Prathmesh has uploaded — messy real-world files (banner rows, currency-formatted numbers, stray whitespace, multiple sheets) are handled automatically on upload, so don't warn him away from uploading something "too messy." Use them when relevant instead of guessing — reach for web_search rather than answering from stale training data when something could plausibly have changed, and reach for create_artifact instead of a code fence when what you're producing is a real file he'd actually save and run, not a two-line illustration. Gmail drafts are never auto-sent — Prathmesh always sends himself. If a tool reports it isn't configured (or reports a scope error), tell Prathmesh plainly what's missing and what to do about it — don't pretend you don't have the capability.
 
 VOICE COMMAND DETECTION:
 If the user says something like "set humour to [number]", "humour level [number]", "be funnier", "go professional", respond with EXACTLY this format and nothing else:
@@ -158,7 +160,14 @@ app.post("/api/prism/upload", express.raw({ type: "multipart/form-data", limit: 
     if (!upstream.ok) {
       return res.status(upstream.status).json({ error: data.detail || "Prism upload failed." });
     }
-    connectors.setCurrentDataset({ datasetId: data.datasetId, name: data.name, rows: data.rows, columns: data.columns });
+    connectors.setCurrentDataset({
+      datasetId: data.datasetId,
+      name: data.name,
+      rows: data.rows,
+      columns: data.columns,
+      sheetNames: data.sheetNames,
+      activeSheet: data.activeSheet,
+    });
     res.json(data);
   } catch (err) {
     res.status(502).json({ error: err.message || "Upstream request to Prism failed." });
