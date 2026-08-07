@@ -110,6 +110,7 @@ body{
 #parallax-wrap{position:fixed;inset:0;z-index:0;pointer-events:none;transform:translate3d(0,0,0);will-change:transform}
 #parallax-wrap.tab-hidden,#parallax-wrap.tab-hidden *{animation-play-state:paused !important}
 #particle-canvas{position:absolute;inset:0;opacity:0.55}
+#neuron-canvas{position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:0.85}
 .hex-grid{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.05;
   -webkit-mask-image:radial-gradient(ellipse 85% 65% at 50% 25%,#000 35%,transparent 100%);
   mask-image:radial-gradient(ellipse 85% 65% at 50% 25%,#000 35%,transparent 100%);}
@@ -853,6 +854,7 @@ button:focus-visible,input:focus-visible,textarea:focus-visible{box-shadow:0 0 0
 
     <!-- MESSAGES -->
   <div id="msg-scroll">
+    <canvas id="neuron-canvas"></canvas>
     <div id="thinking-scanline"></div>
     <div class="stream-inner" id="stream-inner">
       <div id="quick-cmds"></div>
@@ -1109,6 +1111,125 @@ function initParticles() {
       ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
       ctx.fill();
     });
+    requestAnimationFrame(tick);
+  }
+  tick();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// NEURON NETWORK (chat panel background — nodes + synapse links + firing
+// pulses, scoped to #msg-scroll only so it reads as "this is where the
+// thinking happens" rather than another full-page layer)
+// ═══════════════════════════════════════════════════════════════════════
+function initNeuronNetwork() {
+  const host = document.getElementById("msg-scroll");
+  const canvas = document.getElementById("neuron-canvas");
+  if (!host || !canvas) return;
+  const ctx = canvas.getContext("2d");
+  let w, h, nodes, dpr;
+  const LINK_DIST = 170;
+
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = host.clientWidth; h = host.clientHeight;
+    canvas.width = w * dpr; canvas.height = h * dpr;
+    canvas.style.width = w + "px"; canvas.style.height = h + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  resize();
+  window.addEventListener("resize", resize);
+
+  function makeNodes(count) {
+    return Array.from({ length: count }, () => ({
+      x: Math.random() * w, y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.12, vy: (Math.random() - 0.5) * 0.12,
+      r: Math.random() * 1.4 + 1,
+    }));
+  }
+  const COUNT = Math.min(55, Math.max(22, Math.floor((w * h) / 14000)));
+  nodes = makeNodes(COUNT);
+
+  // Pulses: a bright dot that travels along one node-to-node link at a time,
+  // the "signal firing across a synapse" beat that sells the brain metaphor
+  // beyond a plain constellation of dots.
+  let pulses = [];
+  function maybeSpawnPulse(links) {
+    if (REDUCED_MOTION || pulses.length >= 3 || links.length === 0 || Math.random() > 0.02) return;
+    const link = links[Math.floor(Math.random() * links.length)];
+    pulses.push({ a: link.a, b: link.b, t: 0, speed: 0.012 + Math.random() * 0.01 });
+  }
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, w, h);
+    const links = [];
+
+    for (const n of nodes) {
+      n.x += n.vx; n.y += n.vy;
+      if (n.x < 0 || n.x > w) n.vx *= -1;
+      if (n.y < 0 || n.y > h) n.vy *= -1;
+      n.x = Math.max(0, Math.min(w, n.x));
+      n.y = Math.max(0, Math.min(h, n.y));
+    }
+
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        if (dist < LINK_DIST) {
+          const alpha = (1 - dist / LINK_DIST) * 0.6;
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(var(--cyan-rgb),${alpha.toFixed(3)})`;
+          ctx.lineWidth = 0.8;
+          ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+          ctx.stroke();
+          links.push({ a, b });
+        }
+      }
+    }
+
+    for (const n of nodes) {
+      ctx.beginPath();
+      ctx.fillStyle = "rgba(var(--cyan-rgb),0.55)";
+      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    maybeSpawnPulse(links);
+    pulses = pulses.filter((p) => p.t <= 1);
+    for (const p of pulses) {
+      p.t += p.speed;
+      const x = p.a.x + (p.b.x - p.a.x) * p.t;
+      const y = p.a.y + (p.b.y - p.a.y) * p.t;
+      ctx.beginPath();
+      ctx.fillStyle = "rgba(var(--cyan-rgb),0.9)";
+      ctx.shadowColor = "rgba(var(--cyan-rgb),0.9)";
+      ctx.shadowBlur = 6;
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  }
+
+  if (REDUCED_MOTION) { drawFrame(); return; }
+
+  let lastFrameTime = performance.now();
+  let frameSamples = [];
+  let degraded = false;
+
+  function tick() {
+    if (document.hidden) { requestAnimationFrame(tick); return; }
+    const now = performance.now();
+    frameSamples.push(now - lastFrameTime);
+    lastFrameTime = now;
+    if (!degraded && frameSamples.length >= 60) {
+      const avg = frameSamples.reduce((a, b) => a + b, 0) / frameSamples.length;
+      if (avg > 24) {
+        nodes.length = Math.max(8, Math.floor(nodes.length / 2));
+        degraded = true;
+      }
+      frameSamples = [];
+    }
+    drawFrame();
     requestAnimationFrame(tick);
   }
   tick();
@@ -2729,6 +2850,7 @@ document.getElementById("msg-scroll").addEventListener("click", (e) => {
 
 function init() {
   initParticles();
+  initNeuronNetwork();
   initCoreWaveform();
   initParallax();
   updateCoreTelemetry();
