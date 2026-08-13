@@ -394,13 +394,7 @@ body{
 .msg-enter{animation:fadeUp 0.3s var(--ease) forwards}
 
 @keyframes msgWipe{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0% 0 0)}}
-@keyframes rgbGlitch{
-  0%{filter:none}
-  25%{filter:drop-shadow(-2px 0 rgba(255,23,68,0.75)) drop-shadow(2px 0 rgba(var(--cyan-rgb),0.75))}
-  55%{filter:drop-shadow(2px 0 rgba(255,23,68,0.55)) drop-shadow(-2px 0 rgba(var(--cyan-rgb),0.55))}
-  100%{filter:none}
-}
-.msg-materialize{animation:msgWipe 0.32s var(--ease) forwards,rgbGlitch 0.16s linear 0.26s}
+.msg-materialize{animation:msgWipe 0.32s var(--ease) forwards}
 
 @keyframes sendLaunch{0%{transform:translateY(4px)}100%{transform:translateY(0)}}
 .msg-bubble-user.send-launch{animation:sendLaunch 0.25s var(--ease) forwards;position:relative}
@@ -589,15 +583,6 @@ body.custom-cursor-active{cursor:none}
 body.custom-cursor-active *{cursor:none}
 body.custom-cursor-active #cursor-dot,body.custom-cursor-active #cursor-ring{display:block}
 
-/* ── DE-REZ FLASH (panel open/close "pixel dissolve") ── */
-.derez-fx::before{
-  content:"";position:absolute;inset:0;pointer-events:none;z-index:5;border-radius:inherit;
-  background-image:repeating-linear-gradient(0deg,rgba(var(--cyan-rgb),0.45) 0 1px,transparent 1px 3px),
-                    repeating-linear-gradient(90deg,rgba(var(--cyan-rgb),0.45) 0 1px,transparent 1px 3px);
-  background-size:3px 3px;mix-blend-mode:screen;opacity:0;
-}
-.derez-fx.derez-active::before{animation:derezFlash 0.4s steps(5,end)}
-@keyframes derezFlash{0%{opacity:0.85}100%{opacity:0}}
 
 /* ── AMBIENT MODE (idle >30s) ── */
 body.ambient-mode #nebula-layer{opacity:0.3;transition:opacity 1.2s ease}
@@ -1844,10 +1829,10 @@ function setText(sel, text) {
   document.querySelectorAll(sel).forEach((el) => { odometerSet(el, text); });
 }
 
-function triggerDerez(el) {
-  if (!el || REDUCED_MOTION) return;
-  el.classList.add("derez-fx", "derez-active");
-  setTimeout(() => el.classList.remove("derez-active"), 420);
+function triggerDerez() {
+  // pixel-dissolve panel-open flash removed — glitch chrome that had no
+  // place once panels became flat void surfaces. Kept as a no-op so the
+  // existing call sites don't need touching.
 }
 
 function initThinkingScanline() {
